@@ -1,27 +1,19 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"log"
 	"net"
 	"os"
 	"time"
 
+	"github.com/go-mysql-org/go-mysql/client"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/server"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/masahide/mysql8-audit-proxy/pkg/generatepem"
 )
-
-type RemoteThrottleProvider struct {
-	*server.InMemoryProvider
-	delay int // in milliseconds
-}
-
-func (m *RemoteThrottleProvider) GetCredential(username string) (password string, found bool, err error) {
-	time.Sleep(time.Millisecond * time.Duration(m.delay))
-	return m.InMemoryProvider.GetCredential(username)
-}
 
 type Specification struct {
 	ListenAddress string `envconfig:"LISTEN_ADDRESS" default:":3306"`
@@ -45,19 +37,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	c := generatepem.Config{}
+	pemConf := generatepem.Config{}
 	os.Setenv("HOST", "localhost")
-	if err := envconfig.Process("", &c); err != nil {
+	if err := envconfig.Process("", &pemConf); err != nil {
 		log.Fatal(err)
 	}
-	caPems, serverPems, err := generatepem.Generate(c)
+	caPems, serverPems, err := generatepem.Generate(pemConf)
 	if err != nil {
 		log.Fatal(err)
 	}
 	// user either the in-memory credential provider or the remote credential provider (you can implement your own)
-	//inMemProvider := server.NewInMemoryProvider()
-	//inMemProvider.AddUser("root", "123")
-	remoteProvider := &RemoteThrottleProvider{server.NewInMemoryProvider(), 10 + 50}
+	remoteProvider := server.NewInMemoryProvider()
 	remoteProvider.AddUser("root", "123")
 	var tlsConf = server.NewServerTLSConfig(
 		[]byte(caPems.Cert),
@@ -89,6 +79,35 @@ func main() {
 			user := conn.GetUser()
 			log.Printf("user: %s", user)
 
+			dialer := &net.Dialer{}
+			clientDialer := dialer.DialContext
+			ctx := context.Background()
+			clientConn, err := client.ConnectWithDialer(ctx, "tcp", "localhost:3306", user, "PwTest01", "mysql", clientDialer)
+
+			if err := clientConn.Ping(); err != nil {
+				log.Fatal(err)
+			}
+			// Select
+			r, err := clientConn.Execute(`select * from user limit 1`)
+			// Close result for reuse memory (it's not necessary but very useful)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer r.Close()
+			// Direct access to fields
+			log.Printf("status: %d", r.Status)
+			log.Printf("field count: %v", r.FieldNames)
+			/*
+				for _, row := range r.Values {
+					for _, val := range row {
+						v := val.Value() // interface{}
+						log.Printf("value: %v", v)
+					}
+				}
+			*/
+
+			db := clientConn.GetDB()
+			log.Printf("client DB:%s", db)
 			for {
 				err = conn.HandleCommand()
 				if err != nil {
