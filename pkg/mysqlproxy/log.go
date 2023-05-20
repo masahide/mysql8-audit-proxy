@@ -11,9 +11,14 @@ import (
 	"time"
 )
 
+const (
+	fmtVersion = "mysqlproxy-v1.00"
+)
+
 type DataHandler struct {
 	filePath   string
 	rotateTime time.Duration
+	encode     func(w io.Writer, bbp *SendPacket) error
 
 	dataPool    sync.Pool
 	dataChannel chan *SendPacket
@@ -26,6 +31,7 @@ type DataHandler struct {
 func NewDataHandler(filePath string, rotateTime time.Duration, t time.Time) (*DataHandler, error) {
 	// Initialize DataHandler
 	handler := &DataHandler{
+		encode: EncodePacket,
 		dataPool: sync.Pool{
 			New: func() interface{} {
 				return &SendPacket{}
@@ -33,7 +39,7 @@ func NewDataHandler(filePath string, rotateTime time.Duration, t time.Time) (*Da
 		},
 		rotateTime:  rotateTime,
 		filePath:    filePath,
-		dataChannel: make(chan *SendPacket, 10),
+		dataChannel: make(chan *SendPacket, 1000),
 		ticker:      time.NewTicker(rotateTime),
 	}
 	// Create the initial file
@@ -49,32 +55,34 @@ func (d *DataHandler) generateData(in *SendPacket) {
 	*data = *in
 	d.dataChannel <- data
 }
+func (d *DataHandler) putData(data *SendPacket) {
+	d.dataPool.Put(data)
+}
 
 func (d *DataHandler) createFile(t time.Time) error {
 	filename := time2Path(d.filePath, t)
-	file, err := os.Create(filename)
+	var err error
+	d.file, err = os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
-
-	gw := gzip.NewWriter(file)
-
-	d.file = file
-	d.gzipWriter = gw
-	gw.Write([]byte{0, 0, 0, 1}) // version
+	d.gzipWriter = gzip.NewWriter(d.file)
+	d.gzipWriter.Write([]byte(fmtVersion)) // version
 	d.isFirst = true
 
 	return nil
 }
 
 func (d *DataHandler) writeDataToFile(data *SendPacket) error {
-	err := data.EncodeBebop(d.gzipWriter)
-	if err != nil {
+	if err := d.encode(d.gzipWriter, data); err != nil {
 		return err
 	}
-
 	d.isFirst = false
 	return nil
+}
+
+func (d *DataHandler) CloseChannel() {
+	close(d.dataChannel)
 }
 
 func (d *DataHandler) closeFile() error {
@@ -84,17 +92,19 @@ func (d *DataHandler) closeFile() error {
 	return d.file.Close()
 }
 
-func (d *DataHandler) sendAndReceiveData(ctx context.Context) error {
+func (d *DataHandler) receiveAndWrite(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
-		if err := d.closeFile(); err != nil {
+		return nil
+	case data, ok := <-d.dataChannel:
+		if !ok {
+			return io.EOF
+		}
+		err := d.writeDataToFile(data)
+		d.putData(data)
+		if err != nil {
 			return err
 		}
-	case data := <-d.dataChannel:
-		if err := d.writeDataToFile(data); err != nil {
-			return err
-		}
-		d.dataPool.Put(data)
 
 	case t := <-d.ticker.C:
 		if err := d.closeFile(); err != nil {
@@ -126,9 +136,23 @@ func (e *errorReader) Read(p []byte) (n int, err error) {
 func (e *errorReader) Error() error { return e.err }
 
 type FileReader struct {
-	f    *os.File
-	gr   *gzip.Reader
-	errR *errorReader
+	f       *os.File
+	gr      *gzip.Reader
+	decoder *Decoder
+	Decode  func(bbp *SendPacket) error
+}
+
+func checkVersion(r io.Reader) (string, error) {
+	size := len(fmtVersion)
+	b := make([]byte, size)
+	n, err := r.Read(b)
+	if err != nil {
+		return "", err
+	}
+	if n != size {
+		return "", fmt.Errorf("version not match size:%d", n)
+	}
+	return string(b), nil
 }
 
 func NewFileReader(filename string) (*FileReader, error) {
@@ -144,19 +168,23 @@ func NewFileReader(filename string) (*FileReader, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gzip reader: %v", err)
 	}
+	version, err := checkVersion(fr.gr)
+	//version, err := checkVersion(fr.f)
+	if err != nil {
+		return nil, err
+	}
+	switch version {
+	case fmtVersion:
+		break
+	default:
+		return nil, fmt.Errorf("version not match:%s", version)
+	}
 
-	fr.errR = NewErrorReader(fr.gr)
+	fr.decoder = NewDecoder(fr.gr)
+	fr.Decode = fr.decoder.DecodePacket
 	return fr, nil
 }
 
-func (fr *FileReader) ReadSendPacket() (*SendPacket, error) {
-	v := &SendPacket{}
-	err := v.DecodeBebop(fr.errR)
-	if fr.errR.Error() != nil {
-		return nil, fr.errR.Error()
-	}
-	return v, err
-}
 func (fr *FileReader) Close() {
 	fr.gr.Close()
 	fr.f.Close()

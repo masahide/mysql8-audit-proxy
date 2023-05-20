@@ -2,13 +2,14 @@ package mysqlproxy
 
 import (
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestMarshalBebopTo(t *testing.T) {
+func TestEncodeDecode(t *testing.T) {
 
 	testcase := []struct {
 		name   string
@@ -61,24 +62,47 @@ func TestMarshalBebopTo(t *testing.T) {
 	for _, tc := range testcase {
 		t.Run(tc.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
-			w := NewSpWriter(buf)
-			if err := w.Encode(&tc.packet); err != nil {
+			if err := EncodePacket(buf, &tc.packet); err != nil {
 				t.Fatal(err)
 			}
-			t.Logf("buf.Len()=%d", buf.Len())
-			read := bytes.NewBuffer(buf.Bytes())
-			r := NewSpReader(read)
-			want := &SendPacket{Packets: make([]byte, maxBuf)}
-			if err := r.Decode(want); err != nil {
+			encoded := buf.Bytes()
+			read := bytes.NewBuffer(encoded)
+			r := NewDecoder(read)
+			res := SendPacket{Packets: make([]byte, maxBuf)}
+			if err := r.DecodePacket(&res); err != nil {
 				t.Fatal(err)
 			}
-			//bs := tc.packet.MarshalBebop()
-			//t.Logf("len(bs)=%d", len(bs))
-			//want, err := MakeSendPacketFromBytes(bs)
-			if diff := cmp.Diff(tc.packet, want); diff != "" {
+			if diff := cmp.Diff(tc.packet, res); diff != "" {
 				t.Errorf("User value is mismatch (-tom +tom2):\n%s", diff)
 			}
 		})
 	}
+	t.Run("loop", func(t *testing.T) {
+		w := &bytes.Buffer{}
+		for _, tc := range testcase {
+			if err := EncodePacket(w, &tc.packet); err != nil {
+				t.Fatal(err)
+			}
+
+		}
+		encoded := w.Bytes()
+		read := bytes.NewBuffer(encoded)
+		r := NewDecoder(read)
+		res := SendPacket{Packets: make([]byte, maxBuf)}
+		for _, tc := range testcase {
+			if err := r.DecodePacket(&res); err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(tc.packet, res); diff != "" {
+				t.Errorf("User value is mismatch (-tom +tom2):\n%s", diff)
+			}
+		}
+		t.Run("EOF", func(t *testing.T) {
+			err := r.DecodePacket(&res)
+			if err != io.EOF {
+				t.Fatalf("err is not EOF but %v", err)
+			}
+		})
+	})
 
 }
