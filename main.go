@@ -3,12 +3,10 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -145,42 +143,6 @@ type Server struct {
 	HostPassword string
 }
 
-func getConfig() serverConfig {
-	conf := serverConfig{
-		Servers: map[string]Server{
-			"user1@localhost": {ProxyUser: "user1", Password: "123", host: "localhost", Port: "3306", User: "root", HostPassword: ""},
-			"user2@localhost": {ProxyUser: "user2", Password: "123", host: "localhost", Port: "3306", User: "root", HostPassword: ""},
-		},
-	}
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-	f, err := os.Open(filepath.Join(dir, "mysql8-audit-proxy.json"))
-	if err != nil {
-		return conf
-	}
-	defer f.Close()
-	if err := json.NewDecoder(f).Decode(&conf); err != nil {
-		log.Printf("error decoding json: %v file:%s. using default empty config", err, f.Name())
-		return conf
-	}
-	return conf
-}
-
-func putConfig(conf serverConfig) error {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return err
-	}
-	f, err := os.Create(filepath.Join(dir, "mysql8-audit-proxy.json"))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return json.NewEncoder(f).Encode(conf)
-}
-
 func (h *testHandler) handleQuery(query string, binary bool) (*mysql.Result, error) {
 	ss := strings.Split(query, " ")
 	switch strings.ToLower(ss[0]) {
@@ -202,7 +164,8 @@ func (h *testHandler) handleQuery(query string, binary bool) (*mysql.Result, err
 						ss = append(ss, []interface{}{s.ProxyUser, s.Password, s.host, s.Port, s.User, s.HostPassword})
 					}
 					return ss
-				}(), binary)
+				}(),
+				binary)
 		}
 
 		if err != nil {
