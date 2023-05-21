@@ -1,27 +1,22 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/go-mysql-org/go-mysql/client"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/server"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/masahide/mysql8-audit-proxy/pkg/generatepem"
+	"github.com/pingcap/errors"
 )
-
-type RemoteThrottleProvider struct {
-	*server.InMemoryProvider
-	delay int // in milliseconds
-}
-
-func (m *RemoteThrottleProvider) GetCredential(username string) (password string, found bool, err error) {
-	time.Sleep(time.Millisecond * time.Duration(m.delay))
-	return m.InMemoryProvider.GetCredential(username)
-}
 
 type Specification struct {
 	ListenAddress string `envconfig:"LISTEN_ADDRESS" default:":3306"`
@@ -45,19 +40,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	c := generatepem.Config{}
+	pemConf := generatepem.Config{}
 	os.Setenv("HOST", "localhost")
-	if err := envconfig.Process("", &c); err != nil {
+	if err := envconfig.Process("", &pemConf); err != nil {
 		log.Fatal(err)
 	}
-	caPems, serverPems, err := generatepem.Generate(c)
+	caPems, serverPems, err := generatepem.Generate(pemConf)
 	if err != nil {
 		log.Fatal(err)
 	}
 	// user either the in-memory credential provider or the remote credential provider (you can implement your own)
-	//inMemProvider := server.NewInMemoryProvider()
-	//inMemProvider.AddUser("root", "123")
-	remoteProvider := &RemoteThrottleProvider{server.NewInMemoryProvider(), 10 + 50}
+	remoteProvider := server.NewInMemoryProvider()
 	remoteProvider.AddUser("root", "123")
 	var tlsConf = server.NewServerTLSConfig(
 		[]byte(caPems.Cert),
@@ -80,7 +73,8 @@ func main() {
 				[]byte(serverPems.Public), tlsConf,
 			)
 			//conn, err := server.NewConn(c, "root", "fugga", server.EmptyHandler{})
-			conn, err := server.NewCustomizedConn(c, svr, remoteProvider, server.EmptyHandler{})
+			testHandler := &testHandler{}
+			conn, err := server.NewCustomizedConn(c, svr, remoteProvider, testHandler)
 
 			if err != nil {
 				log.Printf("Connection error: %v", err)
@@ -89,6 +83,35 @@ func main() {
 			user := conn.GetUser()
 			log.Printf("user: %s", user)
 
+			dialer := &net.Dialer{}
+			clientDialer := dialer.DialContext
+			ctx := context.Background()
+			clientConn, err := client.ConnectWithDialer(ctx, "tcp", "localhost:3306", user, "PwTest01", "mysql", clientDialer)
+
+			if err := clientConn.Ping(); err != nil {
+				log.Fatal(err)
+			}
+			// Select
+			r, err := clientConn.Execute(`select * from user limit 1`)
+			// Close result for reuse memory (it's not necessary but very useful)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer r.Close()
+			// Direct access to fields
+			log.Printf("status: %d", r.Status)
+			log.Printf("field count: %v", r.FieldNames)
+			/*
+				for _, row := range r.Values {
+					for _, val := range row {
+						v := val.Value() // interface{}
+						log.Printf("value: %v", v)
+					}
+				}
+			*/
+
+			db := clientConn.GetDB()
+			log.Printf("client DB:%s", db)
 			for {
 				err = conn.HandleCommand()
 				if err != nil {
@@ -98,4 +121,89 @@ func main() {
 			}
 		}()
 	}
+}
+
+type testHandler struct {
+	server.EmptyHandler
+}
+
+func (h *testHandler) UseDB(dbName string) error {
+	return nil
+}
+
+type serverConfig struct {
+	Servers map[string]Server
+}
+type Server struct {
+	ProxyUser    string
+	Password     string
+	host         string
+	Port         string
+	User         string
+	HostPassword string
+}
+
+func (h *testHandler) handleQuery(query string, binary bool) (*mysql.Result, error) {
+	ss := strings.Split(query, " ")
+	switch strings.ToLower(ss[0]) {
+	case "select":
+		var r *mysql.Resultset
+		var err error
+		//for handle go mysql driver select @@max_allowed_packet
+		if strings.Contains(strings.ToLower(query), "max_allowed_packet") {
+			r, err = mysql.BuildSimpleResultset([]string{"@@max_allowed_packet"}, [][]interface{}{
+				{mysql.MaxPayloadLen},
+			}, binary)
+		} else {
+			conf := getConfig()
+			r, err = mysql.BuildSimpleResultset(
+				[]string{"ProxyUser", "Password", "Host", "Port", "User", "HostPassword"},
+				func() [][]interface{} {
+					ss := make([][]interface{}, 0, len(conf.Servers))
+					for _, s := range conf.Servers {
+						ss = append(ss, []interface{}{s.ProxyUser, s.Password, s.host, s.Port, s.User, s.HostPassword})
+					}
+					return ss
+				}(),
+				binary)
+		}
+
+		if err != nil {
+			return nil, errors.Trace(err)
+		} else {
+			return &mysql.Result{
+				Status:       0,
+				Warnings:     0,
+				InsertId:     0,
+				AffectedRows: 0,
+				Resultset:    r,
+			}, nil
+		}
+	case "insert":
+		return &mysql.Result{
+			Status:       0,
+			Warnings:     0,
+			InsertId:     1,
+			AffectedRows: 0,
+			Resultset:    nil,
+		}, nil
+	case "delete", "update", "replace":
+		return &mysql.Result{
+			Status:       0,
+			Warnings:     0,
+			InsertId:     0,
+			AffectedRows: 1,
+			Resultset:    nil,
+		}, nil
+	default:
+		return nil, fmt.Errorf("invalid query %s", query)
+	}
+}
+
+func (h *testHandler) HandleQuery(query string) (*mysql.Result, error) {
+	return h.handleQuery(query, false)
+}
+
+func (h *testHandler) HandleOtherCommand(cmd byte, data []byte) error {
+	return mysql.NewError(mysql.ER_UNKNOWN_ERROR, fmt.Sprintf("command %d is not supported now", cmd))
 }
