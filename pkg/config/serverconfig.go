@@ -15,11 +15,13 @@ const (
 )
 
 type Manager struct {
-	configDir string
+	configDir   string
+	serverIndex map[string]int
 }
 type Config struct {
-	Servers map[string]Server
+	Servers []Server
 }
+
 type Server struct {
 	ProxyUser    string
 	Password     string
@@ -31,32 +33,55 @@ type Server struct {
 
 var (
 	defaultConfig = Config{
-		Servers: map[string]Server{
-			"admin":           {ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-			"user1@localhost": {ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+		Servers: []Server{
+			{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
+			{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
 		},
 	}
 )
 
 func NewManager(dir string) *Manager {
-	return &Manager{configDir: dir}
+	return &Manager{
+		configDir:   dir,
+		serverIndex: map[string]int{},
+	}
 }
 
-func (m *Manager) GetConfig() Config {
+func NewConfig() *Config {
+	c := &defaultConfig
+	return c
+}
+
+func (m *Manager) makeIndex(c *Config) {
+	m.serverIndex = map[string]int{}
+	for i := range c.Servers {
+		m.serverIndex[c.Servers[i].ProxyUser] = i
+	}
+}
+
+func (m *Manager) GetConfig() *Config {
+	c := NewConfig()
+	m.makeIndex(c)
 	f, err := os.Open(filepath.Join(m.configDir, appConfigDir, appConfigfile))
 	if err != nil {
-		return defaultConfig
+		return c
 	}
-	conf := Config{}
 	defer f.Close()
-	if err := json.NewDecoder(f).Decode(&conf); err != nil {
+	if err := json.NewDecoder(f).Decode(c); err != nil {
 		log.Printf("error decoding json: %v file:%s. using default empty config", err, f.Name())
-		return conf
 	}
-	return conf
+	m.makeIndex(c)
+	return c
 }
 
-func (m *Manager) PutConfig(conf Config) error {
+func (m *Manager) GetServer(proxyUser string, s []Server) *Server {
+	if i, ok := m.serverIndex[proxyUser]; ok {
+		return &s[i]
+	}
+	return nil
+}
+
+func (m *Manager) PutConfig(conf *Config) error {
 	if err := os.MkdirAll(filepath.Join(m.configDir, appConfigDir), 0755); err != nil {
 		return err
 	}
@@ -72,17 +97,41 @@ func (m *Manager) deleteConfig() error {
 	return os.RemoveAll(filepath.Join(m.configDir, appConfigDir))
 }
 
-func (m *Manager) insert(p *ParsedQuery) error {
+func (m *Manager) Insert(p *ParsedQuery) error {
 	conf := m.GetConfig()
+	err := m.insert(p, conf)
+	if err != nil {
+		return err
+	}
+	return m.PutConfig(conf)
+}
+
+func (m *Manager) insert(p *ParsedQuery, conf *Config) error {
 	servers, err := columnsToConfig(p)
 	if err != nil {
 		return err
 	}
 	for _, server := range servers {
-		if _, ok := conf.Servers[server.ProxyUser]; ok {
+		if _, ok := m.serverIndex[server.ProxyUser]; ok {
 			return fmt.Errorf("allready exists proxyUser:%s", server.ProxyUser)
 		}
-		conf.Servers[server.ProxyUser] = server
+		conf.Servers = append(conf.Servers, server)
+		m.serverIndex[server.ProxyUser] = len(conf.Servers) - 1
 	}
+	return nil
+}
+
+func (m *Manager) update(p *ParsedQuery, conf *Config) error {
+	updateData, err := columnsToConfig(p)
+	if err != nil {
+		return err
+	}
+	for _, u := range updateData {
+		i := m.serverIndex[u.ProxyUser]
+		if conf.Servers[i], err = upsateColumns(p, u); err != nil {
+			return err
+		}
+	}
+
 	return m.PutConfig(conf)
 }

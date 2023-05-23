@@ -271,3 +271,175 @@ func TestSelectResultset(t *testing.T) {
 	}
 
 }
+func TestSelectResultset2(t *testing.T) {
+	servers := []Server{
+		{ProxyUser: "admin", Password: "pass", Host: "localhost", Port: "3306", User: "root", HostPassword: "root123"},
+		{ProxyUser: "user1", Password: "123456", Host: "example.com", Port: "5432", User: "user1", HostPassword: "password"},
+	}
+
+	testCases := []struct {
+		name            string
+		parsedQuery     ParsedQuery
+		expectedColumns []string
+		expectedRows    [][]interface{}
+		expectedErr     error
+	}{
+		{
+			name: "select ProxyUser, Password",
+			parsedQuery: ParsedQuery{
+				Query: Query{
+					Columns: []string{"ProxyUser", "Password"},
+				},
+			},
+			expectedColumns: []string{"ProxyUser", "Password"},
+			expectedRows: [][]interface{}{
+				{"admin", "pass"},
+				{"user1", "123456"},
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "select Host, Port, User",
+			parsedQuery: ParsedQuery{
+				Query: Query{
+					Columns: []string{"Host", "Port", "User"},
+				},
+			},
+			expectedColumns: []string{"Host", "Port", "User"},
+			expectedRows: [][]interface{}{
+				{"localhost", "3306", "root"},
+				{"example.com", "5432", "user1"},
+			},
+			expectedErr: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			columns, rows, err := selectResultset(&tc.parsedQuery, servers)
+			if err != nil {
+				if tc.expectedErr == nil {
+					t.Errorf("unexpected error: %v", err)
+				} else if err.Error() != tc.expectedErr.Error() {
+					t.Errorf("error mismatch: got %v, want %v", err, tc.expectedErr)
+				}
+			} else {
+				if len(columns) != len(tc.expectedColumns) {
+					t.Errorf("columns count mismatch: got %d, want %d", len(columns), len(tc.expectedColumns))
+				} else {
+					for i := range columns {
+						if columns[i] != tc.expectedColumns[i] {
+							t.Errorf("column mismatch: got %s, want %s", columns[i], tc.expectedColumns[i])
+						}
+					}
+				}
+
+				if len(rows) != len(tc.expectedRows) {
+					t.Errorf("rows count mismatch: got %d, want %d", len(rows), len(tc.expectedRows))
+				} else {
+					for i := range rows {
+						if len(rows[i]) != len(tc.expectedRows[i]) {
+							t.Errorf("row %d length mismatch: got %d, want %d", i, len(rows[i]), len(tc.expectedRows[i]))
+						} else {
+							for j := range rows[i] {
+								if rows[i][j] != tc.expectedRows[i][j] {
+									t.Errorf("row %d column %d mismatch: got %v, want %v", i, j, rows[i][j], tc.expectedRows[i][j])
+								}
+							}
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestWhereColumnsToConfig(t *testing.T) {
+	servers := []Server{
+		{ProxyUser: "admin", Password: "pass", Host: "localhost", Port: "3306", User: "root", HostPassword: "root123"},
+		{ProxyUser: "user1", Password: "123456", Host: "example.com", Port: "5432", User: "user1", HostPassword: "password"},
+	}
+
+	testCases := []struct {
+		name          string
+		parsedQuery   ParsedQuery
+		expectedCount int
+		expectedErr   error
+	}{
+		{
+			name: "proxyuser = admin",
+			parsedQuery: ParsedQuery{
+				Query: Query{
+					WhereColumns: []string{"ProxyUser"},
+					WhereValues:  []string{"admin"},
+					WhereOp:      opcode.EQ,
+				},
+			},
+			expectedCount: 1,
+			expectedErr:   nil,
+		},
+		{
+			name: "host = example.com",
+			parsedQuery: ParsedQuery{
+				Query: Query{
+					WhereColumns: []string{"Host"},
+					WhereValues:  []string{"example.com"},
+					WhereOp:      opcode.EQ,
+				},
+			},
+			expectedCount: 1,
+			expectedErr:   nil,
+		},
+		{
+			name: "port = 5432",
+			parsedQuery: ParsedQuery{
+				Query: Query{
+					WhereColumns: []string{"Port"},
+					WhereValues:  []string{"5432"},
+					WhereOp:      opcode.EQ,
+				},
+			},
+			expectedCount: 1,
+			expectedErr:   nil,
+		},
+		{
+			name: "user = user1",
+			parsedQuery: ParsedQuery{
+				Query: Query{
+					WhereColumns: []string{"User"},
+					WhereValues:  []string{"user1"},
+					WhereOp:      opcode.EQ,
+				},
+			},
+			expectedCount: 1,
+			expectedErr:   nil,
+		},
+		{
+			name: "invalid where operation",
+			parsedQuery: ParsedQuery{
+				Query: Query{
+					WhereColumns: []string{"ProxyUser"},
+					WhereValues:  []string{"admin"},
+					WhereOp:      opcode.LT,
+				},
+			},
+			expectedCount: 0,
+			expectedErr:   errors.New("where only supports equal operation"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := whereColumnsToConfig(&tc.parsedQuery, servers)
+			if err != nil {
+				if tc.expectedErr == nil {
+					t.Errorf("unexpected error: %v", err)
+				} else if err.Error() != tc.expectedErr.Error() {
+					t.Errorf("error mismatch: got %v, want %v", err, tc.expectedErr)
+				}
+			} else if len(res) != tc.expectedCount {
+				t.Errorf("result count mismatch: got %d, want %d", len(res), tc.expectedCount)
+			}
+		})
+	}
+}

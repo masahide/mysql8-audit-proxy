@@ -176,6 +176,42 @@ func columnsToConfig(p *ParsedQuery) ([]Server, error) {
 	return res, nil
 }
 
+func upsateColumns(p *ParsedQuery, s Server) (Server, error) {
+	if len(p.Columns) == 0 {
+		p.Columns = []string{ProxyUser, Password, Host, Port, User, HostPassword}
+	}
+	values := p.Values
+	for i, column := range p.Columns {
+		if len(values) < i {
+			return s, fmt.Errorf("values length is less than columns length")
+		}
+		switch strings.ToLower(column) {
+		case lProxyUser:
+			s.ProxyUser = values[i]
+		case lPassword:
+			s.Password = values[i]
+		case lHost:
+			s.Host = values[i]
+		case lPort:
+			s.Port = values[i]
+		case lUser:
+			s.User = values[i]
+		case lHostPassword:
+			s.HostPassword = values[i]
+		default:
+			return s, fmt.Errorf("column %s not found", column)
+		}
+	}
+	return s, nil
+}
+
+func getString(s []string, i int) string {
+	return map[bool]func() string{
+		true:  func() string { return s[i] },
+		false: func() string { return "" },
+	}[i < len(s)]()
+}
+
 func whereColumnsToConfig(p *ParsedQuery, servers []Server) ([]Server, error) {
 	if p.WhereColumns == nil {
 		return servers, nil
@@ -187,17 +223,17 @@ func whereColumnsToConfig(p *ParsedQuery, servers []Server) ([]Server, error) {
 	for i, column := range p.WhereColumns {
 		switch strings.ToLower(column) {
 		case lProxyUser:
-			res = selection(func(sv Server) bool { return sv.ProxyUser == p.Values[i] }, servers)
+			res = selection(func(sv Server) bool { return sv.ProxyUser == getString(p.WhereValues, i) }, servers)
 		case lPassword:
-			res = selection(func(sv Server) bool { return sv.Password == p.Values[i] }, servers)
+			res = selection(func(sv Server) bool { return sv.Password == getString(p.WhereValues, i) }, servers)
 		case lHost:
-			res = selection(func(sv Server) bool { return sv.Host == p.Values[i] }, servers)
+			res = selection(func(sv Server) bool { return sv.Host == getString(p.WhereValues, i) }, servers)
 		case lPort:
-			res = selection(func(sv Server) bool { return sv.Port == p.Values[i] }, servers)
+			res = selection(func(sv Server) bool { return sv.Port == getString(p.WhereValues, i) }, servers)
 		case lUser:
-			res = selection(func(sv Server) bool { return sv.User == p.Values[i] }, servers)
+			res = selection(func(sv Server) bool { return sv.User == getString(p.WhereValues, i) }, servers)
 		case lHostPassword:
-			res = selection(func(sv Server) bool { return sv.HostPassword == p.Values[i] }, servers)
+			res = selection(func(sv Server) bool { return sv.HostPassword == getString(p.WhereValues, i) }, servers)
 		}
 	}
 	return res, nil
