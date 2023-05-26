@@ -112,7 +112,7 @@ func jsonDump(v any) string {
 	return string(b)
 }
 
-func parse(sql string) (*ast.StmtNode, error) {
+func Parse(sql string) (*ast.StmtNode, error) {
 	p := parser.New()
 
 	stmtNodes, _, err := p.Parse(sql, "", "")
@@ -151,7 +151,7 @@ func columnsToConfig(p *ParsedQuery) ([]Server, error) {
 
 		s := Server{}
 		for i, column := range p.Columns {
-			if len(values) < i {
+			if len(values) <= i {
 				return nil, fmt.Errorf("values length is less than columns length")
 			}
 			switch strings.ToLower(column) {
@@ -176,13 +176,13 @@ func columnsToConfig(p *ParsedQuery) ([]Server, error) {
 	return res, nil
 }
 
-func upsateColumns(p *ParsedQuery, s Server) (Server, error) {
+func updateColumns(p *ParsedQuery, s Server) (Server, error) {
 	if len(p.Columns) == 0 {
 		p.Columns = []string{ProxyUser, Password, Host, Port, User, HostPassword}
 	}
 	values := p.Values
 	for i, column := range p.Columns {
-		if len(values) < i {
+		if len(values) <= i {
 			return s, fmt.Errorf("values length is less than columns length")
 		}
 		switch strings.ToLower(column) {
@@ -251,6 +251,9 @@ func selection(f func(s Server) bool, servers []Server) []Server {
 }
 
 func selectResultset(p *ParsedQuery, servers []Server) ([]string, [][]interface{}, error) {
+	if len(p.Columns) == 0 {
+		p.Columns = []string{ProxyUser, Password, Host, Port, User, HostPassword}
+	}
 	columns := []string{}
 	rows := make([][]interface{}, 0, len(servers))
 	for _, s := range servers {

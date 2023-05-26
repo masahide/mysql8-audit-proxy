@@ -81,7 +81,7 @@ func TestParse(t *testing.T) {
 
 	for _, tt := range testcase {
 		t.Run(tt.name, func(t *testing.T) {
-			astNode, err := parse(tt.sql)
+			astNode, err := Parse(tt.sql)
 			if err != nil {
 				t.Fatalf("parse error: %v\n", err.Error())
 			}
@@ -309,6 +309,20 @@ func TestSelectResultset2(t *testing.T) {
 			expectedRows: [][]interface{}{
 				{"localhost", "3306", "root"},
 				{"example.com", "5432", "user1"},
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "select *",
+			parsedQuery: ParsedQuery{
+				Query: Query{
+					Columns: []string{},
+				},
+			},
+			expectedColumns: []string{ProxyUser, Password, Host, Port, User, HostPassword},
+			expectedRows: [][]interface{}{
+				{"admin", "pass", "localhost", "3306", "root", "root123"},
+				{"user1", "123456", "example.com", "5432", "user1", "password"},
 			},
 			expectedErr: nil,
 		},
