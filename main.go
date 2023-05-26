@@ -11,8 +11,8 @@ import (
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/server"
 	"github.com/kelseyhightower/envconfig"
-	serverconfig "github.com/masahide/mysql8-audit-proxy/pkg/config"
 	"github.com/masahide/mysql8-audit-proxy/pkg/generatepem"
+	"github.com/masahide/mysql8-audit-proxy/pkg/serverconfig"
 )
 
 type Specification struct {
@@ -154,10 +154,8 @@ type Server struct {
 func (h *testHandler) selectStmt(p *serverconfig.ParsedQuery) {
 	h.res = &mysql.Result{}
 	col, data, err := h.Select(p)
-	log.Printf("col: %# v", col)
-	log.Printf("data: %# v", data)
-	h.err = err
-	if h.err != nil {
+	if err != nil {
+		h.err = err
 		return
 	}
 	r, _ := mysql.BuildSimpleResultset(col, data, false)
@@ -181,12 +179,10 @@ func (h *testHandler) deleteStmt(p *serverconfig.ParsedQuery) {
 }
 
 func (h *testHandler) handleQuery(query string, binary bool) (*mysql.Result, error) {
-	//log.Printf("query: %s", query)
 	astNode, err := serverconfig.Parse(query)
 	if err != nil {
 		return nil, err
 	}
-	//log.Printf("%# v\n", *astNode)
 	data := serverconfig.NewParsedQuery(
 		map[string]func(p *serverconfig.ParsedQuery){
 			serverconfig.SelectStmt: h.selectStmt,
@@ -197,69 +193,6 @@ func (h *testHandler) handleQuery(query string, binary bool) (*mysql.Result, err
 	)
 	(*astNode).Accept(data)
 	return h.res, h.err
-	/*
-	   ss := strings.Split(query, " ")
-	   switch strings.ToLower(ss[0]) {
-	   case "select":
-
-	   	var r *mysql.Resultset
-	   	var err error
-	   	//for handle go mysql driver select @@max_allowed_packet
-	   	if strings.Contains(strings.ToLower(query), "max_allowed_packet") {
-	   		r, err = mysql.BuildSimpleResultset([]string{"@@max_allowed_packet"}, [][]interface{}{
-	   			{mysql.MaxPayloadLen},
-	   		}, binary)
-	   	} else {
-	   		conf := getConfig()
-	   		r, err = mysql.BuildSimpleResultset(
-	   			[]string{"ProxyUser", "Password", "Host", "Port", "User", "HostPassword"},
-	   			func() [][]interface{} {
-	   				ss := make([][]interface{}, 0, len(conf.Servers))
-	   				for _, s := range conf.Servers {
-	   					ss = append(ss, []interface{}{s.ProxyUser, s.Password, s.host, s.Port, s.User, s.HostPassword})
-	   				}
-	   				return ss
-	   			}(),
-	   			binary)
-	   	}
-
-	   	if err != nil {
-	   		return nil, errors.Trace(err)
-	   	} else {
-	   		return &mysql.Result{
-	   			Status:       0,
-	   			Warnings:     0,
-	   			InsertId:     0,
-	   			AffectedRows: 0,
-	   			Resultset:    r,
-	   		}, nil
-	   	}
-
-	   case "insert":
-
-	   	return &mysql.Result{
-	   		Status:       0,
-	   		Warnings:     0,
-	   		InsertId:     1,
-	   		AffectedRows: 0,
-	   		Resultset:    nil,
-	   	}, nil
-
-	   case "delete", "update", "replace":
-
-	   	return &mysql.Result{
-	   		Status:       0,
-	   		Warnings:     0,
-	   		InsertId:     0,
-	   		AffectedRows: 1,
-	   		Resultset:    nil,
-	   	}, nil
-
-	   default:
-
-	   		return nil, fmt.Errorf("invalid query %s", query)
-	   	}
-	*/
 }
 
 func (h *testHandler) HandleQuery(query string) (*mysql.Result, error) {
