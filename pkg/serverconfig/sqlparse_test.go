@@ -111,14 +111,14 @@ func TestColumnsToConfig(t *testing.T) {
 			in: ParsedQuery{
 				Query: Query{
 					TableName:    "",
-					Columns:      []string{ProxyUser, Password, Host, Port, User, HostPassword},
-					Values:       []string{"XXXX", "root", "000000000", "3306", "", ""},
+					Columns:      []string{User, Password},
+					Values:       []string{"XXXX", "root"},
 					WhereColumns: []string{},
 					WhereValues:  []string{},
 				},
 			},
 			expected: []Server{
-				{ProxyUser: "XXXX", Password: "root", Host: "000000000", Port: "3306", User: "", HostPassword: ""},
+				{User: "XXXX", Password: "root"},
 			},
 		},
 		{
@@ -127,13 +127,13 @@ func TestColumnsToConfig(t *testing.T) {
 				Query: Query{
 					TableName:    "",
 					Columns:      []string{},
-					Values:       []string{"XXXX", "root", "000000000", "3306", "", ""},
+					Values:       []string{"XXXX", "root"},
 					WhereColumns: []string{},
 					WhereValues:  []string{},
 				},
 			},
 			expected: []Server{
-				{ProxyUser: "XXXX", Password: "root", Host: "000000000", Port: "3306", User: "", HostPassword: ""},
+				{User: "XXXX", Password: "root"},
 			},
 		},
 		{
@@ -141,14 +141,14 @@ func TestColumnsToConfig(t *testing.T) {
 			in: ParsedQuery{
 				Query: Query{
 					TableName:    "",
-					Columns:      []string{"ProXyUser", Password, Host, Port, User, HostPassword},
-					Values:       []string{"XXXX", "root", "000000000", "3306", "", ""},
+					Columns:      []string{User, Password},
+					Values:       []string{"XXXX", "root"},
 					WhereColumns: []string{},
 					WhereValues:  []string{},
 				},
 			},
 			expected: []Server{
-				{ProxyUser: "XXXX", Password: "root", Host: "000000000", Port: "3306", User: "", HostPassword: ""},
+				{User: "XXXX", Password: "root"},
 			},
 		},
 		{
@@ -157,30 +157,30 @@ func TestColumnsToConfig(t *testing.T) {
 				Query: Query{
 					TableName:    "",
 					Columns:      []string{},
-					Values:       []string{"XXXX", "root", "000000000", "3306", "", "", "XXXX", "root", "000000000", "3306", "", ""},
+					Values:       []string{"xxxx", "root", "xxxx", "root"},
 					WhereColumns: []string{},
 					WhereValues:  []string{},
 				},
 			},
 			expected: []Server{
-				{ProxyUser: "XXXX", Password: "root", Host: "000000000", Port: "3306", User: "", HostPassword: ""},
-				{ProxyUser: "XXXX", Password: "root", Host: "000000000", Port: "3306", User: "", HostPassword: ""},
+				{User: "xxxx", Password: "root"},
+				{User: "xxxx", Password: "root"},
 			},
 		},
 		{
-			name: "insert4",
+			name: "insert5",
 			in: ParsedQuery{
 				Query: Query{
 					TableName:    "",
 					Columns:      []string{"aaaa"},
-					Values:       []string{"XXXX", "root", "000000000", "3306", "", "", "XXXX", "root", "000000000", "3306", "", ""},
+					Values:       []string{"xxxx", "root", "yyyy", "root"},
 					WhereColumns: []string{},
 					WhereValues:  []string{},
 				},
 			},
 			expected: []Server{
-				{ProxyUser: "XXXX", Password: "root", Host: "000000000", Port: "3306", User: "", HostPassword: ""},
-				{ProxyUser: "XXXX", Password: "root", Host: "000000000", Port: "3306", User: "", HostPassword: ""},
+				{User: "XXXX", Password: "root"},
+				{User: "yyyy", Password: "root"},
 			},
 			err: errors.New("column aaaa not found"),
 		},
@@ -217,15 +217,15 @@ func TestSelectResultset(t *testing.T) {
 			query: ParsedQuery{
 				Query: Query{
 					TableName: "",
-					Columns:   []string{ProxyUser, Password, Host, Port, User, HostPassword},
+					Columns:   []string{User, Password},
 				},
 			},
 			servers: []Server{
-				{ProxyUser: "XXXX", Password: "root", Host: "000000000", Port: "3306", User: "", HostPassword: ""},
+				{User: "XXXX", Password: "root"},
 			},
-			expectedCols: []string{ProxyUser, Password, Host, Port, User, HostPassword},
+			expectedCols: []string{User, Password},
 			expectedVuls: [][]interface{}{
-				{"XXXX", "root", "000000000", "3306", "", ""},
+				{"XXXX", "root"},
 			},
 		},
 		{
@@ -233,21 +233,21 @@ func TestSelectResultset(t *testing.T) {
 			query: ParsedQuery{
 				Query: Query{
 					TableName: "",
-					Columns:   []string{lProxyUser, lHostPassword},
+					Columns:   []string{lUser, lPassword},
 				},
 			},
 			servers: []Server{
-				{ProxyUser: "XXXX", Password: "root", Host: "000000000", Port: "3306", User: "", HostPassword: ""},
-				{ProxyUser: "XXXX", Password: "root", Host: "000000000", Port: "3306", User: "", HostPassword: ""},
-				{ProxyUser: "XXXX", Password: "root", Host: "000000000", Port: "3306", User: "", HostPassword: ""},
-				{ProxyUser: "XXXX", Password: "root", Host: "000000000", Port: "3306", User: "", HostPassword: ""},
+				{User: "XXXX", Password: "root"},
+				{User: "XXXX", Password: "root"},
+				{User: "XXXX", Password: "root"},
+				{User: "XXXX", Password: "root"},
 			},
-			expectedCols: []string{ProxyUser, HostPassword},
+			expectedCols: []string{User, Password},
 			expectedVuls: [][]interface{}{
-				{"XXXX", ""},
-				{"XXXX", ""},
-				{"XXXX", ""},
-				{"XXXX", ""},
+				{"XXXX", "root"},
+				{"XXXX", "root"},
+				{"XXXX", "root"},
+				{"XXXX", "root"},
 			},
 		},
 	}
@@ -273,8 +273,8 @@ func TestSelectResultset(t *testing.T) {
 }
 func TestSelectResultset2(t *testing.T) {
 	servers := []Server{
-		{ProxyUser: "admin", Password: "pass", Host: "localhost", Port: "3306", User: "root", HostPassword: "root123"},
-		{ProxyUser: "user1", Password: "123456", Host: "example.com", Port: "5432", User: "user1", HostPassword: "password"},
+		{User: "admin", Password: "pass"},
+		{User: "user1", Password: "123456"},
 	}
 
 	testCases := []struct {
@@ -285,13 +285,13 @@ func TestSelectResultset2(t *testing.T) {
 		expectedErr     error
 	}{
 		{
-			name: "select ProxyUser, Password",
+			name: "select User, Password",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					Columns: []string{"ProxyUser", "Password"},
+					Columns: []string{User, Password},
 				},
 			},
-			expectedColumns: []string{"ProxyUser", "Password"},
+			expectedColumns: []string{User, Password},
 			expectedRows: [][]interface{}{
 				{"admin", "pass"},
 				{"user1", "123456"},
@@ -299,16 +299,16 @@ func TestSelectResultset2(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name: "select Host, Port, User",
+			name: "select Password, User",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					Columns: []string{"Host", "Port", "User"},
+					Columns: []string{Password, User},
 				},
 			},
-			expectedColumns: []string{"Host", "Port", "User"},
+			expectedColumns: []string{Password, User},
 			expectedRows: [][]interface{}{
-				{"localhost", "3306", "root"},
-				{"example.com", "5432", "user1"},
+				{"pass", "admin"},
+				{"123456", "user1"},
 			},
 			expectedErr: nil,
 		},
@@ -319,10 +319,10 @@ func TestSelectResultset2(t *testing.T) {
 					Columns: []string{},
 				},
 			},
-			expectedColumns: []string{ProxyUser, Password, Host, Port, User, HostPassword},
+			expectedColumns: []string{User, Password},
 			expectedRows: [][]interface{}{
-				{"admin", "pass", "localhost", "3306", "root", "root123"},
-				{"user1", "123456", "example.com", "5432", "user1", "password"},
+				{"admin", "pass"},
+				{"user1", "123456"},
 			},
 			expectedErr: nil,
 		},
@@ -370,8 +370,8 @@ func TestSelectResultset2(t *testing.T) {
 
 func TestWhereColumnsToConfig(t *testing.T) {
 	servers := []Server{
-		{ProxyUser: "admin", Password: "pass", Host: "localhost", Port: "3306", User: "root", HostPassword: "root123"},
-		{ProxyUser: "user1", Password: "123456", Host: "example.com", Port: "5432", User: "user1", HostPassword: "password"},
+		{User: "admin", Password: "pass"},
+		{User: "user1", Password: "123456"},
 	}
 
 	testCases := []struct {
@@ -384,7 +384,7 @@ func TestWhereColumnsToConfig(t *testing.T) {
 			name: "proxyuser = admin",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					WhereColumns: []string{"ProxyUser"},
+					WhereColumns: []string{User},
 					WhereValues:  []string{"admin"},
 					WhereOp:      opcode.EQ,
 				},
@@ -393,23 +393,11 @@ func TestWhereColumnsToConfig(t *testing.T) {
 			expectedErr:   nil,
 		},
 		{
-			name: "host = example.com",
+			name: "user = aaaa",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					WhereColumns: []string{"Host"},
-					WhereValues:  []string{"example.com"},
-					WhereOp:      opcode.EQ,
-				},
-			},
-			expectedCount: 1,
-			expectedErr:   nil,
-		},
-		{
-			name: "port = 5432",
-			parsedQuery: ParsedQuery{
-				Query: Query{
-					WhereColumns: []string{"Port"},
-					WhereValues:  []string{"5432"},
+					WhereColumns: []string{User},
+					WhereValues:  []string{"user1"},
 					WhereOp:      opcode.EQ,
 				},
 			},
@@ -420,7 +408,7 @@ func TestWhereColumnsToConfig(t *testing.T) {
 			name: "user = user1",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					WhereColumns: []string{"User"},
+					WhereColumns: []string{User},
 					WhereValues:  []string{"user1"},
 					WhereOp:      opcode.EQ,
 				},
@@ -432,7 +420,7 @@ func TestWhereColumnsToConfig(t *testing.T) {
 			name: "invalid where operation",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					WhereColumns: []string{"ProxyUser"},
+					WhereColumns: []string{User},
 					WhereValues:  []string{"admin"},
 					WhereOp:      opcode.LT,
 				},

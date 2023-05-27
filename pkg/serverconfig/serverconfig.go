@@ -19,27 +19,28 @@ type Manager struct {
 	configDir   string
 	serverIndex map[string]int
 }
-type Config struct {
-	Servers []Server
-}
 
 type Server struct {
-	ProxyUser    string
-	Password     string
-	Host         string
-	Port         string
-	User         string
-	HostPassword string
+	User     string
+	Password string
 }
 
 var (
 	defaultConfig = Config{
 		Servers: []Server{
-			{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-			{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+			{User: "admin", Password: "pass"},
 		},
 	}
 )
+
+type Config struct {
+	Servers []Server
+}
+
+func NewConfig() *Config {
+	c := &defaultConfig
+	return c
+}
 
 func NewManager(dir string) *Manager {
 	return &Manager{
@@ -48,15 +49,10 @@ func NewManager(dir string) *Manager {
 	}
 }
 
-func NewConfig() *Config {
-	c := &defaultConfig
-	return c
-}
-
 func (m *Manager) makeIndex(c *Config) {
 	m.serverIndex = map[string]int{}
 	for i := range c.Servers {
-		m.serverIndex[c.Servers[i].ProxyUser] = i
+		m.serverIndex[c.Servers[i].User] = i
 	}
 }
 
@@ -114,11 +110,11 @@ func (m *Manager) insert(p *ParsedQuery, conf *Config) (uint64, error) {
 		return n, err
 	}
 	for _, server := range servers {
-		if _, ok := m.serverIndex[server.ProxyUser]; ok {
-			return n, fmt.Errorf("allready exists proxyUser:%s", server.ProxyUser)
+		if _, ok := m.serverIndex[server.User]; ok {
+			return n, fmt.Errorf("allready exists proxyUser:%s", server.User)
 		}
 		conf.Servers = append(conf.Servers, server)
-		m.serverIndex[server.ProxyUser] = len(conf.Servers) - 1
+		m.serverIndex[server.User] = len(conf.Servers) - 1
 		n++
 	}
 	return n, nil
@@ -126,7 +122,11 @@ func (m *Manager) insert(p *ParsedQuery, conf *Config) (uint64, error) {
 
 func (m *Manager) Select(p *ParsedQuery) ([]string, [][]interface{}, error) {
 	conf := m.GetConfig()
-	return selectResultset(p, conf.Servers)
+	rows, err := whereColumnsToConfig(p, conf.Servers)
+	if err != nil {
+		return nil, nil, err
+	}
+	return selectResultset(p, rows)
 }
 func (m *Manager) Update(p *ParsedQuery) (uint64, error) {
 	conf := m.GetConfig()
@@ -147,9 +147,9 @@ func (m *Manager) update(p *ParsedQuery, conf *Config) (uint64, error) {
 		return n, errors.New("no update data")
 	}
 	for _, u := range rows {
-		i, ok := m.serverIndex[u.ProxyUser]
+		i, ok := m.serverIndex[u.User]
 		if !ok {
-			return n, fmt.Errorf("proxyUser:%s not found", u.ProxyUser)
+			return n, fmt.Errorf("proxyUser:%s not found", u.User)
 		}
 		if conf.Servers[i], err = updateColumns(p, u); err != nil {
 			return n, err
@@ -181,7 +181,7 @@ func (m *Manager) delete(p *ParsedQuery, conf *Config) (uint64, error) {
 	for _, s := range conf.Servers {
 		if !func() bool {
 			for _, u := range rows {
-				if s.ProxyUser == u.ProxyUser {
+				if s.User == u.User {
 					return true
 				}
 			}

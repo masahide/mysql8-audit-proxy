@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -74,10 +73,8 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			testHandler := &testHandler{
-				Manager: serverconfig.NewManager(dir),
-			}
-			conn, err := server.NewCustomizedConn(c, svr, remoteProvider, testHandler)
+			chandler := serverconfig.NewConfigHandler(dir)
+			conn, err := server.NewCustomizedConn(c, svr, remoteProvider, chandler)
 
 			if err != nil {
 				log.Printf("Connection error: %v", err)
@@ -85,37 +82,6 @@ func main() {
 			}
 			user := conn.GetUser()
 			log.Printf("user: %s", user)
-
-			/*
-				dialer := &net.Dialer{}
-				clientDialer := dialer.DialContext
-				ctx := context.Background()
-				clientConn, err := client.ConnectWithDialer(ctx, "tcp", "localhost:3306", user, "PwTest01", "mysql", clientDialer)
-
-				if err := clientConn.Ping(); err != nil {
-					log.Fatal(err)
-				}
-				// Select
-				r, err := clientConn.Execute(`select * from user limit 1`)
-				// Close result for reuse memory (it's not necessary but very useful)
-				if err != nil {
-					log.Fatal(err)
-				}
-				defer r.Close()
-				// Direct access to fields
-				log.Printf("status: %d", r.Status)
-				log.Printf("field count: %v", r.FieldNames)
-
-				//	for _, row := range r.Values {
-				//		for _, val := range row {
-				//			v := val.Value() // interface{}
-				//			log.Printf("value: %v", v)
-				//		}
-				//	}
-
-				db := clientConn.GetDB()
-				log.Printf("client DB:%s", db)
-			*/
 
 			for {
 				err = conn.HandleCommand()
@@ -128,77 +94,33 @@ func main() {
 	}
 }
 
-type testHandler struct {
-	server.EmptyHandler
-	*serverconfig.Manager
-	err error
-	res *mysql.Result
-}
+/*
+	dialer := &net.Dialer{}
+	clientDialer := dialer.DialContext
+	ctx := context.Background()
+	clientConn, err := client.ConnectWithDialer(ctx, "tcp", "localhost:3306", user, "PwTest01", "mysql", clientDialer)
 
-func (h *testHandler) UseDB(dbName string) error {
-	return nil
-}
-
-type serverConfig struct {
-	Servers map[string]Server
-}
-type Server struct {
-	ProxyUser    string
-	Password     string
-	host         string
-	Port         string
-	User         string
-	HostPassword string
-}
-
-func (h *testHandler) selectStmt(p *serverconfig.ParsedQuery) {
-	h.res = &mysql.Result{}
-	col, data, err := h.Select(p)
-	if err != nil {
-		h.err = err
-		return
+	if err := clientConn.Ping(); err != nil {
+		log.Fatal(err)
 	}
-	r, _ := mysql.BuildSimpleResultset(col, data, false)
-	h.res = &mysql.Result{Resultset: r}
-}
-func (h *testHandler) insertStmt(p *serverconfig.ParsedQuery) {
-	var n uint64
-	n, h.err = h.Insert(p)
-	h.res = &mysql.Result{AffectedRows: n}
-
-}
-func (h *testHandler) updateStmt(p *serverconfig.ParsedQuery) {
-	var n uint64
-	n, h.err = h.Update(p)
-	h.res = &mysql.Result{AffectedRows: n}
-}
-func (h *testHandler) deleteStmt(p *serverconfig.ParsedQuery) {
-	var n uint64
-	n, h.err = h.Delete(p)
-	h.res = &mysql.Result{AffectedRows: n}
-}
-
-func (h *testHandler) handleQuery(query string, binary bool) (*mysql.Result, error) {
-	astNode, err := serverconfig.Parse(query)
+	// Select
+	r, err := clientConn.Execute(`select * from user limit 1`)
+	// Close result for reuse memory (it's not necessary but very useful)
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
-	data := serverconfig.NewParsedQuery(
-		map[string]func(p *serverconfig.ParsedQuery){
-			serverconfig.SelectStmt: h.selectStmt,
-			serverconfig.InsertStmt: h.insertStmt,
-			serverconfig.UpdateStmt: h.updateStmt,
-			serverconfig.DeleteStmt: h.deleteStmt,
-		},
-	)
-	(*astNode).Accept(data)
-	return h.res, h.err
-}
+	defer r.Close()
+	// Direct access to fields
+	log.Printf("status: %d", r.Status)
+	log.Printf("field count: %v", r.FieldNames)
 
-func (h *testHandler) HandleQuery(query string) (*mysql.Result, error) {
-	return h.handleQuery(query, false)
-}
+	//	for _, row := range r.Values {
+	//		for _, val := range row {
+	//			v := val.Value() // interface{}
+	//			log.Printf("value: %v", v)
+	//		}
+	//	}
 
-func (h *testHandler) HandleOtherCommand(cmd byte, data []byte) error {
-	return mysql.NewError(mysql.ER_UNKNOWN_ERROR, fmt.Sprintf("command %d is not supported now", cmd))
-}
+	db := clientConn.GetDB()
+	log.Printf("client DB:%s", db)
+*/

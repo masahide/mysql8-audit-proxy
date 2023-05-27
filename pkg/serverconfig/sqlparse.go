@@ -124,27 +124,19 @@ func Parse(sql string) (*ast.StmtNode, error) {
 }
 
 const (
-	ProxyUser    = "ProxyUser"
-	Password     = "Password"
-	Host         = "Host"
-	Port         = "Port"
-	User         = "User"
-	HostPassword = "HostPassword"
+	User     = "User"
+	Password = "Password"
 )
 
 var (
-	lProxyUser    = strings.ToLower(ProxyUser)
-	lPassword     = strings.ToLower(Password)
-	lHost         = strings.ToLower(Host)
-	lPort         = strings.ToLower(Port)
-	lUser         = strings.ToLower(User)
-	lHostPassword = strings.ToLower(HostPassword)
+	lUser     = strings.ToLower(User)
+	lPassword = strings.ToLower(Password)
 )
 
 func columnsToConfig(p *ParsedQuery) ([]Server, error) {
 	res := []Server{}
 	if len(p.Columns) == 0 {
-		p.Columns = []string{ProxyUser, Password, Host, Port, User, HostPassword}
+		p.Columns = []string{User, Password}
 	}
 	for col := 0; col < len(p.Values); col += len(p.Columns) {
 		values := p.Values[col:]
@@ -155,18 +147,10 @@ func columnsToConfig(p *ParsedQuery) ([]Server, error) {
 				return nil, fmt.Errorf("values length is less than columns length")
 			}
 			switch strings.ToLower(column) {
-			case lProxyUser:
-				s.ProxyUser = values[i]
-			case lPassword:
-				s.Password = values[i]
-			case lHost:
-				s.Host = values[i]
-			case lPort:
-				s.Port = values[i]
 			case lUser:
 				s.User = values[i]
-			case lHostPassword:
-				s.HostPassword = values[i]
+			case lPassword:
+				s.Password = values[i]
 			default:
 				return nil, fmt.Errorf("column %s not found", column)
 			}
@@ -178,7 +162,7 @@ func columnsToConfig(p *ParsedQuery) ([]Server, error) {
 
 func updateColumns(p *ParsedQuery, s Server) (Server, error) {
 	if len(p.Columns) == 0 {
-		p.Columns = []string{ProxyUser, Password, Host, Port, User, HostPassword}
+		p.Columns = []string{User, Password}
 	}
 	values := p.Values
 	for i, column := range p.Columns {
@@ -186,18 +170,10 @@ func updateColumns(p *ParsedQuery, s Server) (Server, error) {
 			return s, fmt.Errorf("values length is less than columns length")
 		}
 		switch strings.ToLower(column) {
-		case lProxyUser:
-			s.ProxyUser = values[i]
-		case lPassword:
-			s.Password = values[i]
-		case lHost:
-			s.Host = values[i]
-		case lPort:
-			s.Port = values[i]
 		case lUser:
 			s.User = values[i]
-		case lHostPassword:
-			s.HostPassword = values[i]
+		case lPassword:
+			s.Password = values[i]
 		default:
 			return s, fmt.Errorf("column %s not found", column)
 		}
@@ -213,7 +189,7 @@ func getString(s []string, i int) string {
 }
 
 func whereColumnsToConfig(p *ParsedQuery, servers []Server) ([]Server, error) {
-	if p.WhereColumns == nil {
+	if p.WhereColumns == nil || len(p.WhereColumns) == 0 {
 		return servers, nil
 	}
 	if p.WhereOp != opcode.EQ {
@@ -222,18 +198,10 @@ func whereColumnsToConfig(p *ParsedQuery, servers []Server) ([]Server, error) {
 	res := []Server{}
 	for i, column := range p.WhereColumns {
 		switch strings.ToLower(column) {
-		case lProxyUser:
-			res = selection(func(sv Server) bool { return sv.ProxyUser == getString(p.WhereValues, i) }, servers)
-		case lPassword:
-			res = selection(func(sv Server) bool { return sv.Password == getString(p.WhereValues, i) }, servers)
-		case lHost:
-			res = selection(func(sv Server) bool { return sv.Host == getString(p.WhereValues, i) }, servers)
-		case lPort:
-			res = selection(func(sv Server) bool { return sv.Port == getString(p.WhereValues, i) }, servers)
 		case lUser:
 			res = selection(func(sv Server) bool { return sv.User == getString(p.WhereValues, i) }, servers)
-		case lHostPassword:
-			res = selection(func(sv Server) bool { return sv.HostPassword == getString(p.WhereValues, i) }, servers)
+		case lPassword:
+			res = selection(func(sv Server) bool { return sv.Password == getString(p.WhereValues, i) }, servers)
 		}
 	}
 	return res, nil
@@ -252,7 +220,7 @@ func selection(f func(s Server) bool, servers []Server) []Server {
 
 func selectResultset(p *ParsedQuery, servers []Server) ([]string, [][]interface{}, error) {
 	if len(p.Columns) == 0 {
-		p.Columns = []string{ProxyUser, Password, Host, Port, User, HostPassword}
+		p.Columns = []string{User, Password}
 	}
 	columns := []string{}
 	rows := make([][]interface{}, 0, len(servers))
@@ -261,24 +229,12 @@ func selectResultset(p *ParsedQuery, servers []Server) ([]string, [][]interface{
 		col := []string{}
 		for _, column := range p.Columns {
 			switch strings.ToLower(column) {
-			case lProxyUser:
-				row = append(row, s.ProxyUser)
-				col = append(col, ProxyUser)
-			case lPassword:
-				row = append(row, s.Password)
-				col = append(col, Password)
-			case lHost:
-				row = append(row, s.Host)
-				col = append(col, Host)
-			case lPort:
-				col = append(col, Port)
-				row = append(row, s.Port)
 			case lUser:
 				row = append(row, s.User)
 				col = append(col, User)
-			case lHostPassword:
-				row = append(row, s.HostPassword)
-				col = append(col, HostPassword)
+			case lPassword:
+				row = append(row, s.Password)
+				col = append(col, Password)
 			}
 			columns = col
 		}

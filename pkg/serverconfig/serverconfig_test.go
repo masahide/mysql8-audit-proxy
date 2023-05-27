@@ -2,6 +2,7 @@ package serverconfig
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -9,6 +10,11 @@ import (
 )
 
 func TestManager(t *testing.T) {
+	dir, err := os.MkdirTemp("", "mysqlaudit-proxy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
 	testCases := []struct {
 		name     string
 		dir      string
@@ -17,26 +23,26 @@ func TestManager(t *testing.T) {
 	}{
 		{
 			name: "default config",
-			dir:  "default",
+			dir:  dir,
 			config: Config{
 				Servers: []Server{
-					{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-					{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+					{User: "admin", Password: "pass"},
+					{User: "user1@localhost", Password: "123"},
 				},
 			},
 			expected: NewConfig(),
 		},
 		{
 			name: "custom config",
-			dir:  "custom",
+			dir:  dir,
 			config: Config{
 				Servers: []Server{
-					{ProxyUser: "custom", Password: "custom", Host: "custom", Port: "custom", User: "custom", HostPassword: "custom"},
+					{User: "custom", Password: "custom"},
 				},
 			},
 			expected: &Config{
 				Servers: []Server{
-					{ProxyUser: "custom", Password: "custom", Host: "custom", Port: "custom", User: "custom", HostPassword: "custom"},
+					{User: "custom", Password: "custom"},
 				},
 			},
 		},
@@ -94,21 +100,21 @@ func TestManager_Insert(t *testing.T) {
 			name: "insert new server",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					Columns: []string{"ProxyUser", "Password", "Host", "Port", "User", "HostPassword"},
-					Values:  []string{"user2", "password2", "example.com", "5432", "user2", "pass2"},
+					Columns: []string{"User", "Password"},
+					Values:  []string{"user2", "password2"},
 				},
 			},
 			initialConfig: &Config{
 				Servers: []Server{
-					{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-					{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+					{User: "admin", Password: "pass"},
+					{User: "user1@localhost", Password: "123"},
 				},
 			},
 			expectedErr: nil,
 			expectedServers: []Server{
-				{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-				{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
-				{ProxyUser: "user2", Password: "password2", Host: "example.com", Port: "5432", User: "user2", HostPassword: "pass2"},
+				{User: "admin", Password: "pass"},
+				{User: "user1@localhost", Password: "123"},
+				{User: "user2", Password: "password2"},
 			},
 			expectN: 1,
 		},
@@ -116,14 +122,14 @@ func TestManager_Insert(t *testing.T) {
 			name: "insert existing server",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					Columns: []string{"ProxyUser", "Password", "Host", "Port", "User", "HostPassword"},
-					Values:  []string{"admin", "newpass", "", "", "", ""},
+					Columns: []string{"User", "Password"},
+					Values:  []string{"admin", "newpass"},
 				},
 			},
 			initialConfig: &Config{
 				Servers: []Server{
-					{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-					{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+					{User: "admin", Password: "pass"},
+					{User: "user1@localhost", Password: "123"},
 				},
 			},
 			expectedErr: fmt.Errorf("allready exists proxyUser:admin"),
@@ -133,20 +139,20 @@ func TestManager_Insert(t *testing.T) {
 			name: "insert with select * columns",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					Values: []string{"user3", "password3", "example.com", "5432", "user3", "pass3"},
+					Values: []string{"user3", "password3"},
 				},
 			},
 			initialConfig: &Config{
 				Servers: []Server{
-					{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-					{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+					{User: "admin", Password: "pass"},
+					{User: "user1@localhost", Password: "123"},
 				},
 			},
 			expectedErr: nil,
 			expectedServers: []Server{
-				{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-				{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
-				{ProxyUser: "user3", Password: "password3", Host: "example.com", Port: "5432", User: "user3", HostPassword: "pass3"},
+				{User: "admin", Password: "pass"},
+				{User: "user1@localhost", Password: "123"},
+				{User: "user3", Password: "password3"},
 			},
 			expectN: 1,
 		},
@@ -192,17 +198,17 @@ func TestManager_Update(t *testing.T) {
 			name: "update existing server",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					Columns:      []string{"Password", "Host"},
+					Columns:      []string{Password, User},
 					Values:       []string{"newpass", "example.com"},
-					WhereColumns: []string{"ProxyUser"},
+					WhereColumns: []string{"User"},
 					WhereValues:  []string{"admin"},
 					WhereOp:      opcode.EQ,
 				},
 			},
 			initialConfig: &Config{
 				Servers: []Server{
-					{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-					{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+					{User: "admin", Password: "pass"},
+					{User: "user1@localhost", Password: "123"},
 				},
 			},
 			expectedErr: nil,
@@ -212,17 +218,17 @@ func TestManager_Update(t *testing.T) {
 			name: "update non-existing server",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					Columns:      []string{"Password", "Host"},
+					Columns:      []string{Password, User},
 					Values:       []string{"newpass", "example.com"},
-					WhereColumns: []string{"ProxyUser"},
+					WhereColumns: []string{"User"},
 					WhereValues:  []string{"nonexisting"},
 					WhereOp:      opcode.EQ,
 				},
 			},
 			initialConfig: &Config{
 				Servers: []Server{
-					{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-					{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+					{User: "admin", Password: "pass"},
+					{User: "user1@localhost", Password: "123"},
 				},
 			},
 			expectedErr: fmt.Errorf("no update data"),
@@ -232,17 +238,17 @@ func TestManager_Update(t *testing.T) {
 			name: "update with invalid where operation",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					Columns:      []string{"Password"},
+					Columns:      []string{Password},
 					Values:       []string{"newpass"},
-					WhereColumns: []string{"ProxyUser"},
+					WhereColumns: []string{"User"},
 					WhereValues:  []string{"admin"},
 					WhereOp:      opcode.LT,
 				},
 			},
 			initialConfig: &Config{
 				Servers: []Server{
-					{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-					{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+					{User: "admin", Password: "pass"},
+					{User: "user1@localhost", Password: "123"},
 				},
 			},
 			expectedErr: fmt.Errorf("where only supports equal operation"),
@@ -288,21 +294,21 @@ func TestManager_Delete(t *testing.T) {
 			name: "update existing server",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					Columns:      []string{"Password", "Host"},
+					Columns:      []string{"Password", "User"},
 					Values:       []string{"newpass", "example.com"},
-					WhereColumns: []string{"ProxyUser"},
+					WhereColumns: []string{"User"},
 					WhereValues:  []string{"admin"},
 					WhereOp:      opcode.EQ,
 				},
 			},
 			initialConfig: &Config{
 				Servers: []Server{
-					{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-					{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+					{User: "admin", Password: "pass"},
+					{User: "user1@localhost", Password: "123"},
 				},
 			},
 			expectedServers: []Server{
-				{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+				{User: "user1@localhost", Password: "123"},
 			},
 			expectedErr: nil,
 			expectN:     1,
@@ -311,23 +317,23 @@ func TestManager_Delete(t *testing.T) {
 			name: "update non-existing server",
 			parsedQuery: ParsedQuery{
 				Query: Query{
-					Columns:      []string{"Password", "Host"},
+					Columns:      []string{Password, User},
 					Values:       []string{"newpass", "example.com"},
-					WhereColumns: []string{"ProxyUser"},
+					WhereColumns: []string{"User"},
 					WhereValues:  []string{"nonexisting"},
 					WhereOp:      opcode.EQ,
 				},
 			},
 			initialConfig: &Config{
 				Servers: []Server{
-					{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-					{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+					{User: "admin", Password: "pass"},
+					{User: "user1@localhost", Password: "123"},
 				},
 			},
 			expectedErr: fmt.Errorf("not found data"),
 			expectedServers: []Server{
-				{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-				{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+				{User: "admin", Password: "pass"},
+				{User: "user1@localhost", Password: "123"},
 			},
 			expectN: 2,
 		},
@@ -337,15 +343,15 @@ func TestManager_Delete(t *testing.T) {
 				Query: Query{
 					Columns:      []string{"Password"},
 					Values:       []string{"newpass"},
-					WhereColumns: []string{"ProxyUser"},
+					WhereColumns: []string{"User"},
 					WhereValues:  []string{"admin"},
 					WhereOp:      opcode.LT,
 				},
 			},
 			initialConfig: &Config{
 				Servers: []Server{
-					{ProxyUser: "admin", Password: "pass", Host: "", Port: "", User: "", HostPassword: ""},
-					{ProxyUser: "user1@localhost", Password: "123", Host: "localhost", Port: "3306", User: "root", HostPassword: ""},
+					{User: "admin", Password: "pass"},
+					{User: "user1@localhost", Password: "123"},
 				},
 			},
 			expectedErr: fmt.Errorf("where only supports equal operation"),
