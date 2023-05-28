@@ -5,7 +5,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"time"
 
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/server"
@@ -16,13 +15,7 @@ import (
 
 type Specification struct {
 	ListenAddress string `envconfig:"LISTEN_ADDRESS" default:":3306"`
-	Debug         bool
-	Port          int
-	User          string
-	Users         []string
-	Rate          float32
-	Timeout       time.Duration
-	ColorCodes    map[string]int
+	AdminUser     string `default:"admin"`
 }
 
 func main() {
@@ -46,53 +39,84 @@ func main() {
 		log.Fatal(err)
 	}
 	// user either the in-memory credential provider or the remote credential provider (you can implement your own)
-	remoteProvider := server.NewInMemoryProvider()
-	remoteProvider.AddUser("root", "123")
+
+	confDir, err := os.UserConfigDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+	mng := serverconfig.NewManager(confDir)
+	remoteProvider := serverconfig.NewConfigProvider(mng)
 	var tlsConf = server.NewServerTLSConfig(
 		[]byte(caPems.Cert),
 		[]byte(serverPems.Cert),
 		[]byte(serverPems.Key),
 		tls.VerifyClientCertIfGiven,
 	)
+	clt := &client{
+		serverPems:     serverPems,
+		tlsConf:        tlsConf,
+		remoteProvider: remoteProvider,
+		mng:            mng,
+		s:              s,
+	}
 	for {
-		c, err := l.Accept()
+		netConn, err := l.Accept()
 		if err != nil {
 			log.Fatal(err)
 		}
-		go func() {
-			// Create a connection with user root and an empty password.
-			// You can use your own handler to handle command here.
-			svr := server.NewServer(
-				"8.0.12",
-				mysql.DEFAULT_COLLATION_ID,
-				mysql.AUTH_CACHING_SHA2_PASSWORD,
-				[]byte(serverPems.Public), tlsConf,
-			)
-			//conn, err := server.NewConn(c, "root", "fugga", server.EmptyHandler{})
-			dir, err := os.UserConfigDir()
-			if err != nil {
-				log.Fatal(err)
-			}
-			chandler := serverconfig.NewConfigHandler(dir)
-			conn, err := server.NewCustomizedConn(c, svr, remoteProvider, chandler)
-
-			if err != nil {
-				log.Printf("Connection error: %v", err)
-				return
-			}
-			user := conn.GetUser()
-			log.Printf("user: %s", user)
-
-			for {
-				err = conn.HandleCommand()
-				if err != nil {
-					log.Printf(`Could not handle command: %v`, err)
-					break
-				}
-			}
-		}()
+		go clt.run(netConn)
 	}
 }
+
+type client struct {
+	serverPems     generatepem.Pems
+	tlsConf        *tls.Config
+	remoteProvider *serverconfig.ConfigProvider
+	mng            *serverconfig.Manager
+	s              Specification
+}
+
+func (c *client) run(netConn net.Conn) {
+	// Create a connection with user root and an empty password.
+	// You can use your own handler to handle command here.
+	svr := server.NewServer(
+		"8.0.12",
+		mysql.DEFAULT_COLLATION_ID,
+		mysql.AUTH_CACHING_SHA2_PASSWORD,
+		[]byte(c.serverPems.Public), c.tlsConf,
+	)
+	//conn, err := server.NewConn(c, "root", "fugga", server.EmptyHandler{})
+	chandler := serverconfig.NewConfigHandler(c.mng)
+	conn, err := server.NewCustomizedConn(netConn, svr, c.remoteProvider, chandler)
+
+	if err != nil {
+		log.Printf("Connection error: %v", err)
+		return
+	}
+	user := conn.GetUser()
+	log.Printf("user: %s", user)
+
+	if user == c.s.AdminUser {
+		for {
+			err = conn.HandleCommand()
+			if err != nil {
+				log.Printf(`Could not handle command: %v`, err)
+				break
+			}
+		}
+		return
+	}
+
+}
+
+/*
+	user: 'user@host:port'
+	pass: 'xxxx'
+
+	user :'user@host'
+	user :'user@abc.*'
+	user :'user@.*'
+*/
 
 /*
 	dialer := &net.Dialer{}
