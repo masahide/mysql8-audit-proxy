@@ -383,3 +383,64 @@ func TestManager_Delete(t *testing.T) {
 		})
 	}
 }
+
+func TestGetServerInfo(t *testing.T) {
+	testCases := []struct {
+		input       string
+		expected    serverInfo
+		expectedErr error
+	}{
+		{
+			input: "user1@server:3307",
+			expected: serverInfo{
+				Addr:     "server:3307",
+				User:     "user1",
+				Password: "",
+			},
+			expectedErr: nil,
+		},
+		{
+			input: "user2:pass@server:3307",
+			expected: serverInfo{
+				Addr:     "server:3307",
+				User:     "user2",
+				Password: "pass",
+			},
+			expectedErr: nil,
+		},
+		{
+			input: "user3@server",
+			expected: serverInfo{
+				Addr:     "server" + ":" + defaultMySQLPort,
+				User:     "user3",
+				Password: "",
+			},
+			expectedErr: nil,
+		},
+		{
+			input: "admin4",
+			expected: serverInfo{
+				Addr:     "",
+				User:     "admin4",
+				Password: "",
+			},
+			expectedErr: nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.input, func(t *testing.T) {
+			got, err := getServerInfo(tc.input)
+			if err != nil {
+				if tc.expectedErr == nil {
+					t.Errorf("unexpected error: %v", err)
+				} else if err.Error() != tc.expectedErr.Error() {
+					t.Errorf("error mismatch: got %v, want %v", err, tc.expectedErr)
+				}
+			} else if tc.expectedErr != nil {
+				t.Errorf("expected error: %v, but got nil", tc.expectedErr)
+			} else if diff := cmp.Diff(got, tc.expected); diff != "" {
+				t.Errorf("mismatch (-got +expected):\n%s", diff)
+			}
+		})
+	}
+}

@@ -7,6 +7,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 )
 
 const (
@@ -71,12 +73,14 @@ func (m *Manager) GetConfig() *Config {
 	return c
 }
 
+/*
 func (m *Manager) GetServer(proxyUser string, s []Server) *Server {
 	if i, ok := m.serverIndex[proxyUser]; ok {
 		return &s[i]
 	}
 	return nil
 }
+*/
 
 func (m *Manager) PutConfig(conf *Config) error {
 	if err := os.MkdirAll(filepath.Join(m.configDir, appConfigDir), 0755); err != nil {
@@ -194,4 +198,70 @@ func (m *Manager) delete(p *ParsedQuery, conf *Config) (uint64, error) {
 	}
 	conf.Servers = res
 	return n, err
+}
+
+type serverInfo struct {
+	Addr     string
+	User     string
+	Password string
+}
+
+const defaultMySQLPort = "3306"
+
+func getServerInfo(input string) (serverInfo, error) {
+	var info serverInfo
+	splitAt := strings.Split(input, "@")
+	switch len(splitAt) {
+	case 1:
+		info.User = splitAt[0]
+	case 2:
+		info.Addr = splitAt[1]
+		splitColon := strings.Split(splitAt[0], ":")
+		switch len(splitColon) {
+		case 1:
+			info.User = splitColon[0]
+		case 2:
+			info.User = splitColon[0]
+			info.Password = splitColon[1]
+		default:
+			return serverInfo{}, errors.New("invalid input")
+		}
+	default:
+		return serverInfo{}, errors.New("invalid input")
+	}
+
+	if info.Addr != "" {
+		splitColon := strings.Split(info.Addr, ":")
+		if len(splitColon) == 1 {
+			info.Addr = info.Addr + ":" + defaultMySQLPort
+		}
+	}
+
+	return info, nil
+}
+
+func (m *Manager) getServer(username string) *Server {
+	c := m.GetConfig()
+	for _, s := range c.Servers {
+		//log.Printf("s:%# v",s)
+		re, err := regexp.Compile(s.User)
+		if err != nil {
+			if s.User == username {
+				return &s
+			}
+			continue
+		}
+		if re.MatchString((username)) {
+			return &s
+		}
+	}
+	return nil
+}
+
+func (m *Manager) GetPassword(username string) (string, error) {
+	s := m.getServer(username)
+	if s == nil {
+		return "", errors.New("not found")
+	}
+	return s.Password, nil
 }

@@ -1,0 +1,186 @@
+package log
+
+import (
+	"compress/gzip"
+	"context"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/masahide/mysql8-audit-proxy/pkg/mysqlproxy/sendpacket"
+)
+
+const (
+	maxPacketSize = 0xffffff + 4
+)
+
+type auditLogHandler struct {
+	filePath   string
+	rotateTime time.Duration
+	encode     func(w io.Writer, bbp *sendpacket.SendPacket) error
+
+	dataPool    sync.Pool
+	dataChannel chan *sendpacket.SendPacket
+	file        *os.File
+	gzipWriter  *gzip.Writer
+	isFirst     bool
+	ticker      *time.Ticker
+	latestFile  string
+}
+
+func NewAuditLogHandler(queue chan *sendpacket.SendPacket, filePath string, rotateTime time.Duration, t time.Time) (*auditLogHandler, error) {
+	// Initialize auditLogHandler
+	handler := &auditLogHandler{
+		encode: sendpacket.EncodePacket,
+		dataPool: sync.Pool{
+			New: func() interface{} {
+				sp := &sendpacket.SendPacket{}
+				sp.Packets = make([]byte, maxPacketSize)
+				return sp
+			},
+		},
+		rotateTime:  rotateTime,
+		filePath:    filePath,
+		dataChannel: queue,
+		ticker:      time.NewTicker(rotateTime),
+	}
+	// Create the initial file
+	if err := handler.createFile(t); err != nil {
+		return nil, err
+	}
+
+	return handler, nil
+}
+
+func (d *auditLogHandler) createFile(t time.Time) error {
+	d.latestFile = time2Path(d.filePath, t)
+	var err error
+	d.file, err = os.OpenFile(d.latestFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	d.gzipWriter = gzip.NewWriter(d.file)
+	d.gzipWriter.Write([]byte(fmtVersion)) // version
+	d.isFirst = true
+
+	return nil
+}
+
+func (d *auditLogHandler) writeDataToFile(data *sendpacket.SendPacket) error {
+	if err := d.encode(d.gzipWriter, data); err != nil {
+		return err
+	}
+	d.isFirst = false
+	return nil
+}
+
+func (d *auditLogHandler) CloseChannel() {
+	close(d.dataChannel)
+}
+
+func (d *auditLogHandler) closeFile() error {
+	if d.gzipWriter != nil {
+		if err := d.gzipWriter.Close(); err != nil {
+			return err
+		}
+		d.gzipWriter = nil
+	}
+	if d.file != nil {
+		err := d.file.Close()
+		d.file = nil
+		return err
+	}
+	return nil
+}
+
+func (d *auditLogHandler) receiveAndWrite(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return nil
+	case data, ok := <-d.dataChannel:
+		log.Printf("receive channel size:%d", len(d.dataChannel))
+		if !ok {
+			if err := d.closeFile(); err != nil {
+				return err
+			}
+			return io.EOF
+		}
+		err := d.writeDataToFile(data)
+		d.PutSendPacket(data)
+		if err != nil {
+			return err
+		}
+
+	case t := <-d.ticker.C:
+		if err := d.closeFile(); err != nil {
+			return err
+		}
+
+		if err := d.createFile(t); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *auditLogHandler) LogWriteWorker(ctx context.Context) {
+	defer d.closeFile()
+	for {
+		err := d.receiveAndWrite(context.Background())
+		if err == nil {
+			continue
+		}
+		if err == io.EOF {
+			break
+		}
+	}
+}
+
+func (d *auditLogHandler) GetLatestFilename() string { return d.latestFile }
+
+func (d *auditLogHandler) PushToLogChannel(ctx context.Context, sp *sendpacket.SendPacket) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case d.dataChannel <- sp:
+		//log.Printf("send channel size:%d", len(d.dataChannel))
+	}
+	return nil
+}
+func (d *auditLogHandler) PutSendPacket(b *sendpacket.SendPacket) {
+	d.dataPool.Put(b)
+}
+func (d *auditLogHandler) GetSendPacket() *sendpacket.SendPacket {
+	return d.dataPool.Get().(*sendpacket.SendPacket)
+}
+
+func Mkdir(filePath string) error {
+	dir := filepath.Dir(filePath)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create dir:\"%s\" error:%v", dir, err)
+		}
+	}
+	return nil
+}
+
+/*
+Usage example:
+```
+	filePath := "mysql-audit.%Y%m%d%H%M.log"
+	log.Mkdir(filePath)
+	q := make(chan *sendpacket.SendPacket, 1000)
+	logHandler, err := log.NewAuditLogHandler(q, filePath, rotateTime, time.Now())
+	wg:=sync.WaitGroup{}
+	wg.Add(1)
+	go func(){
+		logHandler.LogWriteWorker(ctx)
+		wg.Done()
+	}()
+	wg.Wait()
+```
+*/

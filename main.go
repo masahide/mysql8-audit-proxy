@@ -10,6 +10,7 @@ import (
 	"github.com/go-mysql-org/go-mysql/server"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/masahide/mysql8-audit-proxy/pkg/generatepem"
+	"github.com/masahide/mysql8-audit-proxy/pkg/mysqlproxy"
 	"github.com/masahide/mysql8-audit-proxy/pkg/serverconfig"
 )
 
@@ -45,7 +46,7 @@ func main() {
 		log.Fatal(err)
 	}
 	mng := serverconfig.NewManager(confDir)
-	remoteProvider := serverconfig.NewConfigProvider(mng)
+	remoteProvider := mysqlproxy.NewConfigProvider(mng)
 	var tlsConf = server.NewServerTLSConfig(
 		[]byte(caPems.Cert),
 		[]byte(serverPems.Cert),
@@ -71,12 +72,13 @@ func main() {
 type client struct {
 	serverPems     generatepem.Pems
 	tlsConf        *tls.Config
-	remoteProvider *serverconfig.ConfigProvider
+	remoteProvider *mysqlproxy.ConfigProvider
 	mng            *serverconfig.Manager
 	s              Specification
 }
 
 func (c *client) run(netConn net.Conn) {
+	defer netConn.Close()
 	// Create a connection with user root and an empty password.
 	// You can use your own handler to handle command here.
 	svr := server.NewServer(
@@ -88,11 +90,11 @@ func (c *client) run(netConn net.Conn) {
 	//conn, err := server.NewConn(c, "root", "fugga", server.EmptyHandler{})
 	chandler := serverconfig.NewConfigHandler(c.mng)
 	conn, err := server.NewCustomizedConn(netConn, svr, c.remoteProvider, chandler)
-
 	if err != nil {
 		log.Printf("Connection error: %v", err)
 		return
 	}
+	defer conn.Close()
 	user := conn.GetUser()
 	log.Printf("user: %s", user)
 
@@ -106,7 +108,12 @@ func (c *client) run(netConn net.Conn) {
 		}
 		return
 	}
-
+	pw, err := c.remoteProvider.GetPassword(user)
+	if err != nil {
+		log.Printf("user:\"%s\" GetPassword error: %v", user, err)
+		return
+	}
+	log.Printf("user:\"%s\" pw:\"%s\"", user, pw)
 }
 
 /*

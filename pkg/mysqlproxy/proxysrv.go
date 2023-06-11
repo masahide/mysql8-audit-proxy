@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/server"
@@ -25,13 +26,12 @@ type ProxySrv struct {
 // ProxySrv methods
 // createListener creates a listening socket
 func (p *ProxySrv) createListener() error {
-	listenAddr := net.JoinHostPort(p.Config.ProxyListenAddr, p.Config.ProxyListenPort)
-	listener, err := net.Listen(p.Config.ProxyListentNet, listenAddr)
+	listener, err := net.Listen(p.Config.ProxyListentNet, p.Config.ProxyListenAddr)
 	if err != nil {
 		return fmt.Errorf("failed to create listening socket: %v", err)
 	}
 	p.listenSock = listener
-	log.Printf("Proxy server listening on %s:%s\n", p.Config.ProxyListenAddr, p.Config.ProxyListenPort)
+	log.Printf("Proxy server listening on %s\n", p.Config.ProxyListenAddr)
 
 	pemConf := generatepem.Config{}
 	os.Setenv("HOST", "localhost")
@@ -49,7 +49,7 @@ func (p *ProxySrv) createListener() error {
 		[]byte(serverPems.Key),
 		tls.VerifyClientCertIfGiven,
 	)
-	p.credProvider = createRemoteProvider(p.Config.ProxyUsers)
+	// p.credProvider = createRemoteProvider(p.Config.ProxyUsers)
 	return nil
 }
 func (p *ProxySrv) acceptClntConn() {
@@ -79,9 +79,17 @@ func (p *ProxySrv) sessionWorker(c net.Conn) {
 	}
 	user := conn.GetUser()
 	log.Printf("user: %s", user)
+	targetUser, targetAddr, targetPasswrd := getTargetInfo(user)
+	if len(targetPasswrd) == 0 {
+		targetPasswrd, _, _ = p.credProvider.GetCredential(user)
+	}
 	sess := &ClientSess{
-		ClientMysql: conn,
-		ProxySrv:    p,
+		ClientMysql:    conn,
+		TargetNet:      "TCP",
+		TargetAddr:     targetAddr,
+		TargetUser:     targetUser,
+		TargetPassword: targetPasswrd,
+		ProxySrv:       p,
 	}
 	err = sess.ConnectToMySQL()
 	if err != nil {
@@ -90,6 +98,25 @@ func (p *ProxySrv) sessionWorker(c net.Conn) {
 
 }
 
+func getUserPass(s string) (user string, pass string) {
+	substrings := strings.Split(s, ":")
+	if len(substrings) != 2 {
+		return s, ""
+	}
+	return substrings[0], substrings[1]
+}
+func getTargetInfo(s string) (user string, server string, pass string) {
+	substrings := strings.Split(s, "@")
+	if len(substrings) != 2 {
+		user, pass = getUserPass(s)
+		return
+	}
+	user, pass = getUserPass(substrings[0])
+	server = substrings[1]
+	return
+}
+
+/*
 // createRemoteProvider - create a new in-memory credential provider
 func createRemoteProvider(users []ProxyUser) server.CredentialProvider {
 	remoteProvider := server.NewInMemoryProvider()
@@ -98,3 +125,4 @@ func createRemoteProvider(users []ProxyUser) server.CredentialProvider {
 	}
 	return remoteProvider
 }
+*/

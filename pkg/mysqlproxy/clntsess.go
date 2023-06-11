@@ -13,9 +13,14 @@ import (
 )
 
 type ClientSess struct {
-	ClientMysql *server.Conn
-	TargetMysql *client.Conn
-	ProxySrv    *ProxySrv
+	ClientMysql    *server.Conn
+	TargetMysql    *client.Conn
+	ProxySrv       *ProxySrv
+	TargetNet      string
+	TargetAddr     string
+	TargetUser     string
+	TargetPassword string
+	TargetDB       string
 }
 
 // ClntSess methods
@@ -24,14 +29,8 @@ func (c *ClientSess) ConnectToMySQL() error {
 	dialer := &net.Dialer{}
 	clientDialer := dialer.DialContext
 	ctx := context.Background()
-	TargetConn, err := client.ConnectWithDialer(
-		ctx,
-		c.ProxySrv.Config.TargetNet,
-		net.JoinHostPort(c.ProxySrv.Config.TargetAddr, c.ProxySrv.Config.TargetPort),
-		c.ProxySrv.Config.TargetUser,
-		c.ProxySrv.Config.TargetPass,
-		c.ProxySrv.Config.TargetDB,
-		clientDialer)
+	TargetConn, err := client.ConnectWithDialer(ctx,
+		c.TargetNet, c.TargetAddr, c.TargetUser, c.TargetPassword, c.TargetDB, clientDialer)
 	if err != nil {
 		return err
 	}

@@ -3,17 +3,19 @@ package mysqlproxy
 import "time"
 
 type ProxyCfg struct {
-	ProxyListenAddr string
-	ProxyListenPort string // 3306
-	ProxyListentNet string // tcp or unix
-	TargetAddr      string
-	TargetPort      string // 3306
-	TargetNet       string // tcp or unix
-	TargetUser      string
-	TargetPass      string
-	TargetDB        string
-	ProxyUsers      []ProxyUser
+	Net             string
+	Addr            string
+	ProxyListenAddr string `default:":3307` // "localhost:3307"
+	ProxyListentNet string `default:"tcp"`  // tcp or unix
 	ConTimeout      time.Duration
+
+	LogFileName     string        `default:"mysql-audit.%Y%m%d%H.log"`
+	EncodeType      string        `default:"binary"`
+	LogGzip         bool          `default:"true"`
+	RotateTime      time.Duration `default:"1h"`
+	BufSizeMB       string        `default:"32"`
+	QueueSize       int           `default:"200"`
+	BufferFlushTime time.Duration `default:"1s"`
 }
 
 type ProxyUser struct {

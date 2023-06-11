@@ -1,8 +1,4 @@
-package serverconfig
-
-import (
-	"regexp"
-)
+package mysqlproxy
 
 // interface for user credential provider
 // hint: can be extended for more functionality
@@ -18,44 +14,32 @@ type CredentialProvider interface {
 }
 */
 
-func NewConfigProvider(m *Manager) *ConfigProvider {
-	return &ConfigProvider{Manager: m}
+type userManager interface {
+	GetPassword(username string) (string, error)
+}
+
+func NewConfigProvider(m userManager) *ConfigProvider {
+	return &ConfigProvider{userManager: m}
 }
 
 // implements a in memory credential provider
 type ConfigProvider struct {
-	*Manager
+	userManager
 	//mu      sync.Mutex
 	//servers []Server
 }
 
-func (m *ConfigProvider) getServer(username string) *Server {
-	c := m.GetConfig()
-	for _, s := range c.Servers {
-		//log.Printf("s:%# v",s)
-		re, err := regexp.Compile(s.User)
-		if err != nil {
-			if s.User == username {
-				return &s
-			}
-			continue
-		}
-		if re.MatchString((username)) {
-			return &s
-		}
-	}
-	return nil
-}
-func (m *ConfigProvider) CheckUsername(username string) (found bool, err error) {
-	return m.getServer(username) != nil, nil
+func (m *ConfigProvider) CheckUsername(username string) (bool, error) {
+	_, err := m.GetPassword(username)
+	return err == nil, err
 }
 
 func (m *ConfigProvider) GetCredential(username string) (password string, found bool, err error) {
-	s := m.getServer(username)
-	if s == nil {
+	pw, err := m.GetPassword(username)
+	if err == nil {
 		return "", false, nil
 	}
-	return s.Password, true, nil
+	return pw, true, nil
 }
 
 type Provider ConfigProvider

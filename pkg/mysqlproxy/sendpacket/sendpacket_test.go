@@ -1,4 +1,4 @@
-package mysqlproxy
+package sendpacket
 
 import (
 	"bytes"
