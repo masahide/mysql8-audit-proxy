@@ -18,7 +18,7 @@ const (
 	maxPacketSize = 0xffffff + 4
 )
 
-type auditLogHandler struct {
+type auditLogWriter struct {
 	filePath   string
 	rotateTime time.Duration
 	encode     func(w io.Writer, bbp *sendpacket.SendPacket) error
@@ -32,9 +32,9 @@ type auditLogHandler struct {
 	latestFile  string
 }
 
-func NewAuditLogHandler(queue chan *sendpacket.SendPacket, filePath string, rotateTime time.Duration, t time.Time) (*auditLogHandler, error) {
-	// Initialize auditLogHandler
-	handler := &auditLogHandler{
+func NewAuditLogWriter(queue chan *sendpacket.SendPacket, filePath string, rotateTime time.Duration, t time.Time) (*auditLogWriter, error) {
+	// Initialize auditLogWriter
+	handler := &auditLogWriter{
 		encode: sendpacket.EncodePacket,
 		dataPool: sync.Pool{
 			New: func() interface{} {
@@ -56,7 +56,7 @@ func NewAuditLogHandler(queue chan *sendpacket.SendPacket, filePath string, rota
 	return handler, nil
 }
 
-func (d *auditLogHandler) createFile(t time.Time) error {
+func (d *auditLogWriter) createFile(t time.Time) error {
 	d.latestFile = time2Path(d.filePath, t)
 	var err error
 	d.file, err = os.OpenFile(d.latestFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
@@ -70,7 +70,7 @@ func (d *auditLogHandler) createFile(t time.Time) error {
 	return nil
 }
 
-func (d *auditLogHandler) writeDataToFile(data *sendpacket.SendPacket) error {
+func (d *auditLogWriter) writeDataToFile(data *sendpacket.SendPacket) error {
 	if err := d.encode(d.gzipWriter, data); err != nil {
 		return err
 	}
@@ -78,11 +78,11 @@ func (d *auditLogHandler) writeDataToFile(data *sendpacket.SendPacket) error {
 	return nil
 }
 
-func (d *auditLogHandler) CloseChannel() {
+func (d *auditLogWriter) CloseChannel() {
 	close(d.dataChannel)
 }
 
-func (d *auditLogHandler) closeFile() error {
+func (d *auditLogWriter) closeFile() error {
 	if d.gzipWriter != nil {
 		if err := d.gzipWriter.Close(); err != nil {
 			return err
@@ -97,7 +97,7 @@ func (d *auditLogHandler) closeFile() error {
 	return nil
 }
 
-func (d *auditLogHandler) receiveAndWrite(ctx context.Context) error {
+func (d *auditLogWriter) receiveAndWrite(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return nil
@@ -127,7 +127,7 @@ func (d *auditLogHandler) receiveAndWrite(ctx context.Context) error {
 	return nil
 }
 
-func (d *auditLogHandler) LogWriteWorker(ctx context.Context) {
+func (d *auditLogWriter) LogWriteWorker(ctx context.Context) {
 	defer d.closeFile()
 	for {
 		err := d.receiveAndWrite(context.Background())
@@ -140,9 +140,9 @@ func (d *auditLogHandler) LogWriteWorker(ctx context.Context) {
 	}
 }
 
-func (d *auditLogHandler) GetLatestFilename() string { return d.latestFile }
+func (d *auditLogWriter) GetLatestFilename() string { return d.latestFile }
 
-func (d *auditLogHandler) PushToLogChannel(ctx context.Context, sp *sendpacket.SendPacket) error {
+func (d *auditLogWriter) PushToLogChannel(ctx context.Context, sp *sendpacket.SendPacket) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -151,10 +151,10 @@ func (d *auditLogHandler) PushToLogChannel(ctx context.Context, sp *sendpacket.S
 	}
 	return nil
 }
-func (d *auditLogHandler) PutSendPacket(b *sendpacket.SendPacket) {
+func (d *auditLogWriter) PutSendPacket(b *sendpacket.SendPacket) {
 	d.dataPool.Put(b)
 }
-func (d *auditLogHandler) GetSendPacket() *sendpacket.SendPacket {
+func (d *auditLogWriter) GetSendPacket() *sendpacket.SendPacket {
 	return d.dataPool.Get().(*sendpacket.SendPacket)
 }
 
@@ -174,7 +174,7 @@ Usage example:
 	filePath := "mysql-audit.%Y%m%d%H%M.log"
 	log.Mkdir(filePath)
 	q := make(chan *sendpacket.SendPacket, 1000)
-	logHandler, err := log.NewAuditLogHandler(q, filePath, rotateTime, time.Now())
+	logHandler, err := log.NewAuditLogWriter(q, filePath, rotateTime, time.Now())
 	wg:=sync.WaitGroup{}
 	wg.Add(1)
 	go func(){

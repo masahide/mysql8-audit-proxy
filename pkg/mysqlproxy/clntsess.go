@@ -44,19 +44,29 @@ func (c *ClientSess) Proxy(ctx context.Context) {
 		Conn:    c.ClientMysql.Conn,
 		Timeout: c.ProxySrv.Config.ConTimeout,
 	}
-	targetWriter := &timeoutnet.TimeoutWriter{
+	targetReader := &timeoutnet.TimeoutReader{
 		Conn:    c.TargetMysql.Conn,
 		Timeout: c.ProxySrv.Config.ConTimeout,
+		Ctx:     cctx,
 	}
 	clientReader := &timeoutnet.TimeoutReader{
 		Conn:    c.ClientMysql.Conn,
 		Timeout: c.ProxySrv.Config.ConTimeout,
 		Ctx:     cctx,
 	}
-	targetReader := &timeoutnet.TimeoutReader{
+	targetWriter := &timeoutnet.TimeoutWriter{
 		Conn:    c.TargetMysql.Conn,
 		Timeout: c.ProxySrv.Config.ConTimeout,
-		Ctx:     cctx,
+	}
+	st := &SendTask{
+		Reader:    clientReader,
+		Writer:    targetWriter,
+		User:      c.TargetUser,
+		DB:        c.TargetDB,
+		Addr:      c.TargetAddr,
+		ConnID:    c.ClientMysql.ConnectionID(),
+		Config:    c.ProxySrv.Config,
+		LogWriter: c.ProxySrv.AuditLogWriter,
 	}
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -68,7 +78,9 @@ func (c *ClientSess) Proxy(ctx context.Context) {
 		cancel()
 		wg.Done()
 	}()
-	_, err := io.Copy(targetWriter, clientReader)
+	// TODO:
+	err := st.Worker(ctx)
+	//_, err := io.Copy(targetWriter, clientReader)
 	if err != nil {
 		log.Printf("targetWrit err:%v", err)
 	}
@@ -79,6 +91,7 @@ func (c *ClientSess) Proxy(ctx context.Context) {
 	}
 }
 
+/*
 func (c *ClientSess) testSendDataToSrv() {
 	if err := c.TargetMysql.Ping(); err != nil {
 		log.Fatal(err)
@@ -94,14 +107,14 @@ func (c *ClientSess) testSendDataToSrv() {
 	// Direct access to fields
 	log.Printf("status: %d", r.Status)
 	log.Printf("field count: %v", r.FieldNames)
-	/*
-		for _, row := range r.Values {
-			for _, val := range row {
-				v := val.Value() // interface{}
-				log.Printf("value: %v", v)
-			}
-		}
-	*/
+
+	//	for _, row := range r.Values {
+	//		for _, val := range row {
+	//			v := val.Value() // interface{}
+	//			log.Printf("value: %v", v)
+	//		}
+	//	}
+
 
 	db := c.TargetMysql.GetDB()
 	log.Printf("client DB:%s", db)
@@ -114,3 +127,4 @@ func (c *ClientSess) testSendDataToSrv() {
 	}
 
 }
+*/

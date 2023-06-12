@@ -35,7 +35,7 @@ func TestSendAndReceiveData(t *testing.T) {
 	filePath := filepath.Join(tempDir, "test.%Y%m%d%H%M.log")
 	// Initialize DataHandler
 	q := make(chan *sendpacket.SendPacket, 1000)
-	handler, err := NewAuditLogHandler(q, filePath, 1*time.Minute, time.Date(2012, 3, 4, 5, 6, 7, 0, time.UTC))
+	handler, err := NewAuditLogWriter(q, filePath, 1*time.Minute, time.Date(2012, 3, 4, 5, 6, 7, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}

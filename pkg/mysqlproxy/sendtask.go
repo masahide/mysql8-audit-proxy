@@ -21,28 +21,17 @@ type LogWriter interface {
 }
 
 type SendTask struct {
-	reader net.Conn
-	writer net.Conn
-	user   string
-	db     string
-	addr   string
-	connID uint32
+	Reader net.Conn
+	Writer io.Writer
+	User   string
+	DB     string
+	Addr   string
+	ConnID uint32
 	Config *ProxyCfg
 	LogWriter
 }
 
-func (st *SendTask) newSendPacket() *sendpacket.SendPacket {
-	sp := st.GetSendPacket()
-	sp.Datetime = time.Now().Unix()
-	sp.User = st.user
-	sp.Db = st.db
-	sp.Addr = st.addr
-	sp.ConnectionID = st.connID
-	sp.State = "est"
-	return sp
-}
-
-func (st *SendTask) Worker(ctx context.Context) {
+func (st *SendTask) Worker(ctx context.Context) error {
 	var sp *sendpacket.SendPacket
 	defer func() {
 		if sp != nil {
@@ -58,26 +47,38 @@ func (st *SendTask) Worker(ctx context.Context) {
 		sp.Packets, err = st.writeBufferAndSend(ctx, sp.Packets)
 		if err != nil && err != io.EOF {
 			log.Printf("writeBufferAndSend err:%v", err)
-			return
+			return err
 		}
 		if len(sp.Packets) > 0 {
 			if err := st.PushToLogChannel(ctx, sp); err != nil {
-				return
+				return err
 			}
 		}
 		if err == io.EOF {
-			return
+			return err
 		}
 	}
+	return nil
+}
+
+func (st *SendTask) newSendPacket() *sendpacket.SendPacket {
+	sp := st.GetSendPacket()
+	sp.Datetime = time.Now().Unix()
+	sp.User = st.User
+	sp.Db = st.DB
+	sp.Addr = st.Addr
+	sp.ConnectionID = st.ConnID
+	sp.State = "est"
+	return sp
 }
 
 func (st *SendTask) readFullMysqlPacket(ctx context.Context, buf []byte) (int, error) {
 	size := 0
 	for {
-		if err := st.reader.SetReadDeadline(time.Now().Add(st.Config.BufferFlushTime)); err != nil {
+		if err := st.Reader.SetReadDeadline(time.Now().Add(st.Config.BufferFlushTime)); err != nil {
 			return 0, err
 		}
-		nn, err := st.reader.Read(buf)
+		nn, err := st.Reader.Read(buf)
 		size += nn
 		switch {
 		case err == nil:
@@ -103,13 +104,6 @@ func (st *SendTask) readFullMysqlPacket(ctx context.Context, buf []byte) (int, e
 	}
 }
 
-func resizeSlice(b []byte, size int) []byte {
-	if cap(b) < size {
-		return append(b, make([]byte, size-cap(b))...)
-	}
-	return b[:size]
-}
-
 func (st *SendTask) writeBufferAndSend(ctx context.Context, dst []byte) ([]byte, error) {
 	dst = resizeSlice(dst, 4) //[]byte{0, 0, 0, 0}
 	n, err := st.readFullMysqlPacket(ctx, dst)
@@ -128,8 +122,15 @@ func (st *SendTask) writeBufferAndSend(ctx context.Context, dst []byte) ([]byte,
 	if n, err := st.readFullMysqlPacket(ctx, databuf); err != nil {
 		return dst, fmt.Errorf("packet readFullMysqlPacket data err: %w n:%d want:%d", err, n, len(databuf))
 	}
-	if n, err := st.writer.Write(dst[:length+4]); err != nil {
+	if n, err := st.Writer.Write(dst[:length+4]); err != nil {
 		return dst, fmt.Errorf("netWrite err: %w n:%d", err, n)
 	}
 	return dst[:length+4], nil
+}
+
+func resizeSlice(b []byte, size int) []byte {
+	if cap(b) < size {
+		return append(b, make([]byte, size-cap(b))...)
+	}
+	return b[:size]
 }

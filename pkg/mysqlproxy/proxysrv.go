@@ -16,11 +16,12 @@ import (
 
 // ProxySrv is  the main struct for the proxy server
 type ProxySrv struct {
-	Config       *ProxyCfg
-	listenSock   net.Listener
-	tlsConf      *tls.Config
-	serverPems   generatepem.Pems
-	credProvider server.CredentialProvider
+	Config         *ProxyCfg
+	listenSock     net.Listener
+	tlsConf        *tls.Config
+	serverPems     generatepem.Pems
+	credProvider   server.CredentialProvider
+	AuditLogWriter LogWriter
 }
 
 // ProxySrv methods
@@ -65,6 +66,16 @@ func (p *ProxySrv) acceptClntConn() {
 	}
 }
 
+type mysqlHandler struct {
+	db string
+	server.EmptyHandler
+}
+
+func (h *mysqlHandler) UseDB(dbName string) error {
+	h.db = dbName
+	return nil
+}
+
 func (p *ProxySrv) sessionWorker(c net.Conn) {
 	svr := server.NewServer(
 		"8.0.12",
@@ -72,7 +83,8 @@ func (p *ProxySrv) sessionWorker(c net.Conn) {
 		mysql.AUTH_CACHING_SHA2_PASSWORD,
 		[]byte(p.serverPems.Public), p.tlsConf,
 	)
-	conn, err := server.NewCustomizedConn(c, svr, p.credProvider, server.EmptyHandler{})
+	emptyHandler := &mysqlHandler{}
+	conn, err := server.NewCustomizedConn(c, svr, p.credProvider, emptyHandler)
 	if err != nil {
 		log.Printf("Connection error: %v", err)
 		return
@@ -89,6 +101,7 @@ func (p *ProxySrv) sessionWorker(c net.Conn) {
 		TargetAddr:     targetAddr,
 		TargetUser:     targetUser,
 		TargetPassword: targetPasswrd,
+		TargetDB:       emptyHandler.db,
 		ProxySrv:       p,
 	}
 	err = sess.ConnectToMySQL()
