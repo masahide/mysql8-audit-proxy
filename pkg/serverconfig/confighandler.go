@@ -15,10 +15,6 @@ type configHandler struct {
 	res *mysql.Result
 }
 
-type serverConfig struct {
-	Servers map[string]Server
-}
-
 func (h *configHandler) selectStmt(p *ParsedQuery) {
 	h.res = &mysql.Result{}
 	col, data, err := h.Select(p)

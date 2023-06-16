@@ -403,6 +403,7 @@ func TestManager_Delete(t *testing.T) {
 	}
 }
 
+/*
 func TestGetServerInfo(t *testing.T) {
 	testCases := []struct {
 		input       string
@@ -463,6 +464,7 @@ func TestGetServerInfo(t *testing.T) {
 		})
 	}
 }
+*/
 
 /*
 func TestGetServer(t *testing.T) {

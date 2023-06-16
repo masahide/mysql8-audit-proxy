@@ -89,7 +89,7 @@ func (p *ProxySrv) sessionWorker(ctx context.Context, netConn net.Conn) {
 	chandler := serverconfig.NewConfigHandler(p.SvConfMng)
 	defer netConn.Close()
 	svr := server.NewServer(
-		"8.0.12",
+		"8.0.12_mysql-audit-proxy",
 		mysql.DEFAULT_COLLATION_ID,
 		mysql.AUTH_CACHING_SHA2_PASSWORD,
 		[]byte(p.serverPems.Public), p.tlsConf,

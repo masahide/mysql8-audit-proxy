@@ -26,7 +26,6 @@ type auditLogWriter struct {
 	dataChannel chan *sendpacket.SendPacket
 	file        *os.File
 	gzipWriter  *gzip.Writer
-	isFirst     bool
 	ticker      *time.Ticker
 	latestFile  string
 }
@@ -58,22 +57,27 @@ func NewAuditLogWriter(queue chan *sendpacket.SendPacket, filePath string, rotat
 func (d *auditLogWriter) createFile(t time.Time) error {
 	d.latestFile = time2Path(d.filePath, t)
 	var err error
-	d.file, err = os.OpenFile(d.latestFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		return err
+	//d.file, err = os.OpenFile(d.latestFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	d.file, err = os.OpenFile(d.latestFile, os.O_EXCL|os.O_CREATE|os.O_WRONLY, 0644)
+	if err == nil {
+		d.gzipWriter = gzip.NewWriter(d.file)
+		d.gzipWriter.Write([]byte(fmtVersion)) // version
+		return nil
 	}
-	d.gzipWriter = gzip.NewWriter(d.file)
-	d.gzipWriter.Write([]byte(fmtVersion)) // version
-	d.isFirst = true
-
-	return nil
+	if err != nil && os.IsExist(err) {
+		d.file, err = os.OpenFile(d.latestFile, os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			return err
+		}
+		d.gzipWriter = gzip.NewWriter(d.file)
+	}
+	return err
 }
 
 func (d *auditLogWriter) writeDataToFile(data *sendpacket.SendPacket) error {
 	if err := d.encode(d.gzipWriter, data); err != nil {
 		return err
 	}
-	d.isFirst = false
 	return nil
 }
 

@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 )
 
 const (
@@ -218,6 +217,7 @@ type serverInfo struct {
 
 const defaultMySQLPort = "3306"
 
+/*
 func getServerInfo(input string) (serverInfo, error) {
 	var info serverInfo
 	splitAt := strings.Split(input, "@")
@@ -230,9 +230,9 @@ func getServerInfo(input string) (serverInfo, error) {
 		switch len(splitColon) {
 		case 1:
 			info.User = splitColon[0]
-		case 2:
-			info.User = splitColon[0]
-			info.Password = splitColon[1]
+			case 2:
+				info.User = splitColon[0]
+				info.Password = splitColon[1]
 		default:
 			return serverInfo{}, errors.New("invalid input")
 		}
@@ -249,6 +249,7 @@ func getServerInfo(input string) (serverInfo, error) {
 
 	return info, nil
 }
+*/
 
 func (m *Manager) getServer(username string) *Server {
 	c := m.GetConfig()
@@ -265,6 +266,14 @@ func (m *Manager) getServer(username string) *Server {
 		}
 	}
 	return nil
+	/*
+		svi, err := getServerInfo(username)
+		if err != nil {
+			return nil
+		}
+
+		return &Server{User: svi.User, Password: svi.Password}
+	*/
 }
 
 func (m *Manager) GetPassword(username string) (string, error) {

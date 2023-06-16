@@ -1,7 +1,6 @@
 package serverconfig
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -107,10 +106,12 @@ func (p *ParsedQuery) LeaveFunc() {
 	//log.Printf("%sStmt %s\n", p.Statement, jsonDump(p))
 }
 
+/*
 func jsonDump(v any) string {
 	b, _ := json.MarshalIndent(v, "", " ")
 	return string(b)
 }
+*/
 
 func Parse(sql string) (*ast.StmtNode, error) {
 	p := parser.New()
