@@ -14,16 +14,13 @@ type TimeoutWriter struct {
 }
 
 func (w *TimeoutWriter) Write(p []byte) (int, error) {
-	w.Conn.SetWriteDeadline(time.Now().Add(w.Timeout))
-	n, err := w.Conn.Write(p)
-
 	select {
 	case <-w.Ctx.Done():
-		// Context canceled or expired
-		return n, w.Ctx.Err()
+		return 0, w.Ctx.Err()
 	default:
-		return n, err
 	}
+	w.Conn.SetWriteDeadline(time.Now().Add(w.Timeout))
+	return w.Conn.Write(p)
 }
 
 // TimeoutReader wraps a net.Conn and sets a read timeout
@@ -34,16 +31,13 @@ type TimeoutReader struct {
 }
 
 func (r *TimeoutReader) Read(p []byte) (int, error) {
-	r.Conn.SetReadDeadline(time.Now().Add(r.Timeout))
-	n, err := r.Conn.Read(p)
-
 	select {
 	case <-r.Ctx.Done():
-		// Context canceled or expired
-		return n, r.Ctx.Err()
+		return 0, r.Ctx.Err()
 	default:
-		return n, err
 	}
+	r.Conn.SetReadDeadline(time.Now().Add(r.Timeout))
+	return r.Conn.Read(p)
 }
 func (r *TimeoutReader) WriteTo(w io.Writer) (int64, error) {
 	var totalWritten int64
@@ -57,7 +51,7 @@ func (r *TimeoutReader) WriteTo(w io.Writer) (int64, error) {
 				break
 			} else if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				// Read operation timed out
-				// Handle timeout and continue reading with new deadline
+				// Handle timeout and ncontinue reading with new deadline
 				continue
 			} else {
 				// Other error

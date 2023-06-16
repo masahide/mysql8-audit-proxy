@@ -9,13 +9,10 @@ import (
 
 type configHandler struct {
 	server.EmptyHandler
+	db string
 	*Manager
 	err error
 	res *mysql.Result
-}
-
-func (h *configHandler) UseDB(dbName string) error {
-	return nil
 }
 
 type serverConfig struct {
@@ -77,6 +74,13 @@ func (h *configHandler) HandleQuery(query string) (*mysql.Result, error) {
 func (h *configHandler) HandleOtherCommand(cmd byte, data []byte) error {
 	return mysql.NewError(mysql.ER_UNKNOWN_ERROR, fmt.Sprintf("command %d is not supported now", cmd))
 }
+
+func (h *configHandler) UseDB(dbName string) error {
+	h.db = dbName
+	return nil
+}
+
+func (h *configHandler) GetDB() string { return h.db }
 
 func NewConfigHandler(m *Manager) *configHandler {
 	return &configHandler{Manager: m}

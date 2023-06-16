@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -37,25 +38,25 @@ func TestTimeoutReaderAndWriter(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		timeoutReader := &TimeoutReader{
 			Conn:    conn1,
-			Timeout: 1 * time.Second,
+			Timeout: 200 * time.Microsecond,
 			Ctx:     ctx,
 		}
 		timeoutWriter := &TimeoutWriter{
 			Conn:    conn1,
-			Timeout: 1 * time.Second,
+			Timeout: 200 * time.Microsecond,
 			Ctx:     ctx,
 		}
 
 		data := bytes.Repeat([]byte("Hello, world!"), 1000)
 		go func() {
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 			cancel()
 		}()
 
 		//t.Logf("data len=%d", len(data))
 		_, err := timeoutWriter.Write(data)
-		if err != context.Canceled {
-			t.Errorf("Expected context.Canceled, got: %v", err)
+		if !os.IsTimeout(err) {
+			t.Errorf("Expected timeout, got: %v", err)
 		}
 
 		var out bytes.Buffer

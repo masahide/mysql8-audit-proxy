@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -102,7 +101,7 @@ func (d *auditLogWriter) receiveAndWrite(ctx context.Context) error {
 	case <-ctx.Done():
 		return nil
 	case data, ok := <-d.dataChannel:
-		log.Printf("receive channel size:%d", len(d.dataChannel))
+		//log.Printf("receive channel size:%d", len(d.dataChannel))
 		if !ok {
 			if err := d.closeFile(); err != nil {
 				return err
@@ -127,10 +126,15 @@ func (d *auditLogWriter) receiveAndWrite(ctx context.Context) error {
 	return nil
 }
 
-func (d *auditLogWriter) LogWriteWorker(ctx context.Context) {
+func (d *auditLogWriter) LogWriteWorker(ctx context.Context) error {
 	defer d.closeFile()
 	for {
-		err := d.receiveAndWrite(context.Background())
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		err := d.receiveAndWrite(ctx)
 		if err == nil {
 			continue
 		}
@@ -138,6 +142,7 @@ func (d *auditLogWriter) LogWriteWorker(ctx context.Context) {
 			break
 		}
 	}
+	return nil
 }
 
 func (d *auditLogWriter) GetLatestFilename() string { return d.latestFile }

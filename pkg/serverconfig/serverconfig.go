@@ -13,12 +13,13 @@ import (
 
 const (
 	appName       = "mysql8-audit-proxy"
-	appConfigDir  = "." + appName
+	appConfigDir  = appName
 	appConfigfile = "config.json"
 )
 
 type Manager struct {
 	configDir   string
+	filePath    string
 	serverIndex map[string]int
 }
 
@@ -40,17 +41,25 @@ type Config struct {
 }
 
 func NewConfig() *Config {
-	c := &defaultConfig
-	return c
+	c := defaultConfig
+	return &c
 }
 
 func NewManager(dir string) *Manager {
 	return &Manager{
 		configDir:   dir,
+		filePath:    filepath.Join(dir, appConfigDir, appConfigfile),
 		serverIndex: map[string]int{},
 	}
 }
 
+func (m *Manager) PrintPathInfo() string {
+	b, err := json.Marshal(map[string]string{"filePath": m.filePath})
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
 func (m *Manager) makeIndex(c *Config) {
 	m.serverIndex = map[string]int{}
 	for i := range c.Servers {
@@ -61,7 +70,7 @@ func (m *Manager) makeIndex(c *Config) {
 func (m *Manager) GetConfig() *Config {
 	c := NewConfig()
 	m.makeIndex(c)
-	f, err := os.Open(filepath.Join(m.configDir, appConfigDir, appConfigfile))
+	f, err := os.Open(m.filePath)
 	if err != nil {
 		return c
 	}
@@ -70,6 +79,7 @@ func (m *Manager) GetConfig() *Config {
 		log.Printf("error decoding json: %v file:%s. using default empty config", err, f.Name())
 	}
 	m.makeIndex(c)
+	//log.Printf("loaded config: %# v", c)
 	return c
 }
 
@@ -243,8 +253,7 @@ func getServerInfo(input string) (serverInfo, error) {
 func (m *Manager) getServer(username string) *Server {
 	c := m.GetConfig()
 	for _, s := range c.Servers {
-		//log.Printf("s:%# v",s)
-		re, err := regexp.Compile(s.User)
+		re, err := regexp.Compile(`^` + s.User + `$`)
 		if err != nil {
 			if s.User == username {
 				return &s

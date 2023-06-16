@@ -19,6 +19,8 @@ func TestManager(t *testing.T) {
 		name     string
 		dir      string
 		config   Config
+		user     string
+		pass     string
 		expected *Config
 	}{
 		{
@@ -30,19 +32,30 @@ func TestManager(t *testing.T) {
 					{User: "user1@localhost", Password: "123"},
 				},
 			},
-			expected: NewConfig(),
+			user: "admin",
+			pass: "pass",
+			expected: &Config{
+				Servers: []Server{
+					{User: "admin", Password: "pass"},
+					{User: "user1@localhost", Password: "123"},
+				},
+			},
 		},
 		{
 			name: "custom config",
 			dir:  dir,
 			config: Config{
 				Servers: []Server{
-					{User: "custom", Password: "custom"},
+					{User: "custom", Password: "pass1"},
+					{User: "custom2", Password: "pass2"},
 				},
 			},
+			user: "custom2",
+			pass: "pass2",
 			expected: &Config{
 				Servers: []Server{
-					{User: "custom", Password: "custom"},
+					{User: "custom", Password: "pass1"},
+					{User: "custom2", Password: "pass2"},
 				},
 			},
 		},
@@ -68,6 +81,13 @@ func TestManager(t *testing.T) {
 				}
 			})
 
+			t.Run("GetPassword", func(t *testing.T) {
+				got, _ := m.GetPassword(tc.user)
+				if got != tc.pass {
+					t.Errorf("mismatch (-got +expected):-%s,+%s", got, tc.pass)
+				}
+			})
+
 			t.Run("deleteConfig", func(t *testing.T) {
 				// Test deleteConfig
 				err := m.deleteConfig()
@@ -83,6 +103,7 @@ func TestManager(t *testing.T) {
 					t.Errorf("GetConfig after deleteConfig mismatch (-got +defaultConfig):\n%s", diff)
 				}
 			})
+
 		})
 	}
 }
@@ -274,8 +295,6 @@ func TestManager_Update(t *testing.T) {
 				t.Errorf("expected error: %v, but got nil", tc.expectedErr)
 			} else if n != tc.expectN {
 				t.Errorf("n  mismatch: got %d, want %d", n, tc.expectN)
-			} else {
-				// テストケースごとの検証を行う（省略）
 			}
 		})
 	}
@@ -444,3 +463,47 @@ func TestGetServerInfo(t *testing.T) {
 		})
 	}
 }
+
+/*
+func TestGetServer(t *testing.T) {
+	testCases := []struct {
+		input         string
+		initialConfig *Config
+		expected      string
+		expectedErr   error
+	}{
+		{
+			input: "admin",
+			initialConfig: &Config{
+				Servers: []Server{
+					{User: "admin", Password: "pass"},
+					{User: "user", Password: "123"},
+				},
+			},
+			expected:    "pass",
+			expectedErr: nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.input, func(t *testing.T) {
+			m := &Manager{
+				configDir:   "config",
+				serverIndex: make(map[string]int),
+			}
+			m.makeIndex(tc.initialConfig)
+			got, err := m.GetPassword(tc.input)
+			if err != nil {
+				if tc.expectedErr == nil {
+					t.Errorf("unexpected error: %v", err)
+				} else if err.Error() != tc.expectedErr.Error() {
+					t.Errorf("error mismatch: got %v, want %v", err, tc.expectedErr)
+				}
+			} else if tc.expectedErr != nil {
+				t.Errorf("expected error: %v, but got nil", tc.expectedErr)
+			} else if got != tc.expected {
+				t.Errorf("mismatch (-got +expected):-%s,+%s", got, tc.expected)
+			}
+		})
+	}
+}
+*/

@@ -30,13 +30,15 @@ type ConfigProvider struct {
 }
 
 func (m *ConfigProvider) CheckUsername(username string) (bool, error) {
+	//log.Printf("CheckUsername username:%s", username)
 	_, err := m.GetPassword(username)
 	return err == nil, err
 }
 
 func (m *ConfigProvider) GetCredential(username string) (password string, found bool, err error) {
+	//log.Printf("GetCredential username:%s", username)
 	pw, err := m.GetPassword(username)
-	if err == nil {
+	if err != nil {
 		return "", false, nil
 	}
 	return pw, true, nil

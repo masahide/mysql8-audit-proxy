@@ -43,6 +43,7 @@ func (c *ClientSess) Proxy(ctx context.Context) {
 	clientWriter := &timeoutnet.TimeoutWriter{
 		Conn:    c.ClientMysql.Conn,
 		Timeout: c.ProxySrv.Config.ConTimeout,
+		Ctx:     cctx,
 	}
 	targetReader := &timeoutnet.TimeoutReader{
 		Conn:    c.TargetMysql.Conn,
@@ -57,6 +58,7 @@ func (c *ClientSess) Proxy(ctx context.Context) {
 	targetWriter := &timeoutnet.TimeoutWriter{
 		Conn:    c.TargetMysql.Conn,
 		Timeout: c.ProxySrv.Config.ConTimeout,
+		Ctx:     cctx,
 	}
 	st := &SendTask{
 		Reader:    clientReader,
@@ -81,8 +83,8 @@ func (c *ClientSess) Proxy(ctx context.Context) {
 	// TODO:
 	err := st.Worker(ctx)
 	//_, err := io.Copy(targetWriter, clientReader)
-	if err != nil {
-		log.Printf("targetWrit err:%v", err)
+	if err != nil && err != context.Canceled {
+		log.Printf("targetWriter err:%v", err)
 	}
 	cancel()
 	wg.Wait()

@@ -37,9 +37,13 @@ func (st *SendTask) Worker(ctx context.Context) error {
 		if sp != nil {
 			st.PutSendPacket(sp)
 		}
-		st.CloseChannel()
 	}()
 	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		if sp == nil {
 			sp = st.newSendPacket()
 		}
@@ -58,7 +62,6 @@ func (st *SendTask) Worker(ctx context.Context) error {
 			return err
 		}
 	}
-	return nil
 }
 
 func (st *SendTask) newSendPacket() *sendpacket.SendPacket {
