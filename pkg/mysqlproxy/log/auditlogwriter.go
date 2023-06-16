@@ -176,20 +176,3 @@ func Mkdir(filePath string) error {
 	}
 	return nil
 }
-
-/*
-Usage example:
-```
-	filePath := "mysql-audit.%Y%m%d%H%M.log"
-	log.Mkdir(filePath)
-	q := make(chan *sendpacket.SendPacket, 1000)
-	logHandler, err := log.NewAuditLogWriter(q, filePath, rotateTime, time.Now())
-	wg:=sync.WaitGroup{}
-	wg.Add(1)
-	go func(){
-		logHandler.LogWriteWorker(ctx)
-		wg.Done()
-	}()
-	wg.Wait()
-```
-*/
