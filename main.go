@@ -16,11 +16,6 @@ import (
 	"github.com/masahide/mysql8-audit-proxy/pkg/serverconfig"
 )
 
-type Specification struct {
-	ListenAddress string `envconfig:"LISTEN_ADDRESS" default:":3306"`
-	AdminUser     string `default:"admin"`
-}
-
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	confDir, err := os.UserConfigDir()

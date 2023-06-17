@@ -73,8 +73,11 @@ func (d *auditLogWriter) createFile(t time.Time) error {
 	}
 	return err
 }
-
+func dumpByte(b []byte) string {
+	return fmt.Sprintf("size:%d, %v", len(b), b)
+}
 func (d *auditLogWriter) writeDataToFile(data *sendpacket.SendPacket) error {
+	//log.Println(dumpByte(data.Packets))
 	if err := d.encode(d.gzipWriter, data); err != nil {
 		return err
 	}

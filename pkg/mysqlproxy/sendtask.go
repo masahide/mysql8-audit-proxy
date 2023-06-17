@@ -37,7 +37,9 @@ func (st *SendTask) Worker(ctx context.Context) error {
 		if sp != nil {
 			st.PutSendPacket(sp)
 		}
+		st.sendState(ctx, "disconnect")
 	}()
+	st.sendState(ctx, "connect")
 	for {
 		select {
 		case <-ctx.Done():
@@ -57,6 +59,7 @@ func (st *SendTask) Worker(ctx context.Context) error {
 			if err := st.PushToLogChannel(ctx, sp); err != nil {
 				return err
 			}
+			sp = nil
 		}
 		if err == io.EOF {
 			return err
@@ -64,12 +67,19 @@ func (st *SendTask) Worker(ctx context.Context) error {
 	}
 }
 
+func (st *SendTask) sendState(ctx context.Context, state string) error {
+	sp := st.newSendPacket()
+	sp.State = state
+	sp.Packets = sp.Packets[:0]
+	return st.PushToLogChannel(ctx, sp)
+}
+
 func (st *SendTask) newSendPacket() *sendpacket.SendPacket {
 	sp := st.GetSendPacket()
 	sp.Datetime = time.Now().Unix()
 	sp.User = st.User
+	sp.Addr = st.Reader.RemoteAddr().String()
 	sp.Db = st.DB
-	sp.Addr = st.Addr
 	sp.ConnectionID = st.ConnID
 	sp.State = "est"
 	return sp

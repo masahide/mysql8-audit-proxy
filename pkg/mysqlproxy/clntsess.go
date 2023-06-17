@@ -83,7 +83,7 @@ func (c *ClientSess) Proxy(ctx context.Context) {
 	// TODO:
 	err := st.Worker(ctx)
 	//_, err := io.Copy(targetWriter, clientReader)
-	if err != nil && err != context.Canceled {
+	if err != nil && err != context.Canceled && err != io.EOF {
 		log.Printf("targetWriter err:%v", err)
 	}
 	cancel()
