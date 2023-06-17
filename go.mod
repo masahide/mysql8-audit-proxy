@@ -3,7 +3,9 @@ module github.com/masahide/mysql8-audit-proxy
 go 1.20
 
 require (
+	github.com/dzeromsk/debpack v0.0.0-20190912160929-4b3d7b5dd69b
 	github.com/go-mysql-org/go-mysql v1.7.0
+	github.com/google/rpmpack v0.0.0-20221120200012-98b63d62fd77
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/masahide/go-mysql v0.0.0-20230617133912-5398a9168b1c
 	github.com/mus-format/mus-go v0.0.0-20230509112454-a98ee1309aef
@@ -17,9 +19,7 @@ require (
 	github.com/benbjohnson/clock v1.1.0 // indirect
 	github.com/blakesmith/ar v0.0.0-20190502131153-809d4375e1fb // indirect
 	github.com/cavaliergopher/cpio v1.0.1 // indirect
-	github.com/dzeromsk/debpack v0.0.0-20190912160929-4b3d7b5dd69b // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/google/rpmpack v0.0.0-20221120200012-98b63d62fd77 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/k0kubun/pp/v3 v3.2.0 // indirect
 	github.com/klauspost/compress v1.15.1 // indirect
