@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/go-mysql-org/go-mysql/mysql"
 )
 
@@ -46,5 +48,5 @@ func GetComName(com byte) string {
 	if ok {
 		return s
 	}
-	return "UNKNOWN"
+	return fmt.Sprintf("UNKNOWN:%x", com)
 }

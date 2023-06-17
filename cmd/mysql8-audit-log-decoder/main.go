@@ -89,6 +89,10 @@ func formatPacket(sp sendpacket.SendPacket) (res packet) {
 		res.Packets = sp.Packets
 		return
 	}
+	if len(data) == 0 {
+		res.Packets = sp.Packets
+		return
+	}
 	cmd := data[0]
 	data = data[1:]
 	switch cmd {

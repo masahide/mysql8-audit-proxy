@@ -5,12 +5,15 @@ go 1.20
 require (
 	github.com/go-mysql-org/go-mysql v1.7.0
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/masahide/go-mysql v0.0.0-20230617133912-5398a9168b1c
 	github.com/mus-format/mus-go v0.0.0-20230509112454-a98ee1309aef
 	github.com/pingcap/tidb/parser v0.0.0-20221126021158-6b02a5d8ba7d
 )
 
 require (
 	github.com/200sc/bebop v0.4.0 // indirect
+	github.com/DataDog/zstd v1.5.2 // indirect
+	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/benbjohnson/clock v1.1.0 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/uuid v1.3.0 // indirect

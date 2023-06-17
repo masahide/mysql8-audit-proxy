@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/go-mysql-org/go-mysql/mysql"
-	"github.com/go-mysql-org/go-mysql/server"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/masahide/go-mysql/server"
 	"github.com/masahide/mysql8-audit-proxy/pkg/generatepem"
 	"github.com/masahide/mysql8-audit-proxy/pkg/serverconfig"
 )
@@ -92,8 +92,7 @@ func (p *ProxySrv) sessionWorker(ctx context.Context, netConn net.Conn) {
 		"8.0.12_mysql-audit-proxy",
 		mysql.DEFAULT_COLLATION_ID,
 		mysql.AUTH_CACHING_SHA2_PASSWORD,
-		[]byte(p.serverPems.Public), p.tlsConf,
-	)
+		[]byte(p.serverPems.Public), p.tlsConf)
 	remoteProvider := NewConfigProvider(p.SvConfMng)
 	mysqlConn, err := server.NewCustomizedConn(netConn, svr, remoteProvider, chandler)
 	if err != nil {
