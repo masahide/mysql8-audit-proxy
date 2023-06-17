@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -16,7 +18,20 @@ import (
 	"github.com/masahide/mysql8-audit-proxy/pkg/serverconfig"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+	showVer = flag.Bool("version", false, "Show version")
+)
+
 func main() {
+	flag.Parse()
+	if *showVer {
+		fmt.Printf("version: %v\ncommit: %v\nbuilt_at: %v\n", version, commit, date)
+		return
+	}
+
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	confDir, err := os.UserConfigDir()
 	if err != nil {

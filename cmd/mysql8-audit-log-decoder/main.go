@@ -15,8 +15,20 @@ import (
 	"github.com/masahide/mysql8-audit-proxy/pkg/mysqlproxy/sendpacket"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+	showVer = flag.Bool("version", false, "Show version")
+)
+
 func main() {
 	flag.Parse()
+	if *showVer {
+		// nolint: errcheck
+		fmt.Printf("version: %v\ncommit: %v\nbuilt_at: %v\n", version, commit, date)
+		return
+	}
 	for _, arg := range flag.Args() {
 		err := filePrint(arg)
 		if err != nil {
