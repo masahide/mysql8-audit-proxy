@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/go-mysql-org/go-mysql/client"
+	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/server"
 	"github.com/masahide/mysql8-audit-proxy/pkg/timeoutnet"
 )
@@ -25,15 +26,22 @@ type ClientSess struct {
 
 // ClntSess methods
 // ConnectToMySQL connect to mysql target server
-func (c *ClientSess) ConnectToMySQL() error {
+func (c *ClientSess) ConnectToMySQL(ctx context.Context) error {
 	dialer := &net.Dialer{}
 	clientDialer := dialer.DialContext
-	ctx := context.Background()
+	//cap := c.ClientMysql.Capability()
 	TargetConn, err := client.ConnectWithDialer(ctx,
-		c.TargetNet, c.TargetAddr, c.TargetUser, c.TargetPassword, c.TargetDB, clientDialer)
+		c.TargetNet, c.TargetAddr, c.TargetUser, c.TargetPassword, c.TargetDB, clientDialer,
+		func(con *client.Conn) {
+			//con.SetCapability(cap)
+			con.SetCapability(mysql.CLIENT_LOCAL_FILES)
+		})
 	if err != nil {
+		log.Printf("connect to mysql target err:%s", err)
 		return err
 	}
+	//log.Printf("connected to mysql cleint:%s, capability:%x", c.ClientMysql.LocalAddr(), c.ClientMysql.Capability())
+	//log.Printf("connected to mysql cleint:%s, localfile:%x", c.ClientMysql.LocalAddr(), c.ClientMysql.Capability()&mysql.CLIENT_LOCAL_FILES)
 	c.TargetMysql = TargetConn
 	return nil
 }

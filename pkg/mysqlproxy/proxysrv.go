@@ -126,7 +126,7 @@ func (p *ProxySrv) sessionWorker(ctx context.Context, netConn net.Conn) {
 		TargetDB:       chandler.GetDB(),
 		ProxySrv:       p,
 	}
-	err = sess.ConnectToMySQL()
+	err = sess.ConnectToMySQL(ctx)
 	if err != nil {
 		log.Printf("error: connect to mysql target:%s err: %v", targetAddr, err)
 		return
