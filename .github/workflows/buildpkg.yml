@@ -9,8 +9,8 @@ env:
   GO_VERSION: '1.20'
   APP_NAME: 'mysql8-audit-proxy'
   APP2_NAME: 'mysql8-audit-log-decoder'
-  MAIN_GO: 'main.go'
-  APP2_MAIN_GO: 'cmd/mysql8-audit-log-decoder/*.go'
+  MAIN_GO: '.'
+  APP2_MAIN_GO: './cmd/mysql8-audit-log-decoder'
   DESC: 'mysql8 audit proxy'
 
 jobs:
