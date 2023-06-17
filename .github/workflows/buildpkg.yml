@@ -56,7 +56,7 @@ jobs:
     strategy:
       matrix:
         goos: [linux]
-        goarch: [amd64, arm64]
+        goarch: [amd64]
 
     steps:
       - uses: actions/checkout@v3
@@ -92,7 +92,7 @@ jobs:
     needs: [info, build-binary]
     strategy:
       matrix:
-        goarch: [amd64, arm64]
+        goarch: [amd64]
     steps:
       - uses: actions/checkout@v3
       - name: Set up Go
@@ -110,7 +110,6 @@ jobs:
           ls -la
           case ${{ matrix.goarch }} in
             "amd64") arch=x86_64;;
-            "arm64") arch=aarch64;;
           esac
           NAME=${{ env.APP_NAME }} \
           VERSION=${{ needs.info.outputs.ver }} \
@@ -153,14 +152,14 @@ jobs:
         run: |
           mkdir .dist
           for os in linux;do
-            for arch in amd64 arm64;do
+            for arch in amd64;do
               cd bin-${os}-${arch}
                 chmod 755 ${{ env.APP_NAME }}
                 tar -cvzf ../.dist/${os}-${arch}.tar.gz ${{ env.APP_NAME }}
               cd ..
             done
           done
-          for arch in amd64 arm64;do
+          for arch in amd64;do
             mv linux-packages-${arch}/* .dist
           done
           ls -la .dist
