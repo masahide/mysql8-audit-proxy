@@ -21,8 +21,8 @@ If you find a bug or issue with mysql8-audit-proxy, please open an issue on the 
 ## Feature Requests
 We're always open to new ideas! If you have a suggestion for a new feature, please open an issue on the GitHub repository and label it as a feature request.
 
-## Getting Help
-If you need help with using mysql8-audit-proxy, please open an issue on the GitHub repository. We'll do our best to assist you!
+## Testing
+Here's how to run tests on mysql8-audit-proxy using a MySQL 8 Docker container.
 
 
 ### Start and Stop MySQL Daemon
