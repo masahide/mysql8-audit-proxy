@@ -1,69 +1,56 @@
-# mysql8-audit-proxy
-mysql8 audit proxy
+# Contributing to mysql8-audit-proxy
 
+## Introduction
+Thank you for your interest in contributing to mysql8-audit-proxy! This project is a utility that helps with auditing logs in MySQL version 8. We appreciate all contributions and are always looking for help to improve the project.
 
+## How to Contribute
+We welcome contributions in all forms. Here's how to get started:
 
-# test
+1. Fork the repository on GitHub.
+2. Clone your fork and create a new branch for your feature or fix.
+3. Write the code for your feature or fix.
+4. Write tests to accompany your code.
+5. Push your branch to your fork.
+6. Open a pull request in the main repository.
 
+Please adhere to our coding style guidelines. 
+
+## Code of Conduct
+We expect all contributors to adhere to our Code of Conduct. Please see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for more information.
+
+## Reporting Issues
+If you find a bug or issue with mysql8-audit-proxy, please open an issue on the GitHub repository. Please include as much detail as possible, including steps to reproduce the issue, any error messages, and information about your operating system and version of MySQL.
+
+## Feature Requests
+We're always open to new ideas! If you have a suggestion for a new feature, please open an issue on the GitHub repository and label it as a feature request.
+
+## Getting Help
+If you need help with using mysql8-audit-proxy, please open an issue on the GitHub repository. We'll do our best to assist you!
+
+## Testing
+Here's how to run tests on mysql8-audit-proxy using a MySQL 8 Docker container.
+
+### Start and Stop MySQL Daemon
 ```bash
-# start mysqld
+# Start mysqld
 docker run --rm --name testmysql -p3306:3306 -e MYSQL_ROOT_PASSWORD=PwTest01 -d mysql:8
 
-# test connection
+# Test connection
 MYSQL_PWD=PwTest01 mysql -h 127.0.0.1 -P 3306 -uroot
 
-
-# kill mysqld
+# Kill mysqld
 docker kill testmysql
-
 ```
 
-# dev test
+## Test the Program
+
 ```bash
-# test
+# Proxy admin access 
 LISTEN_ADDRESS=:3307 go run main.go
 MYSQL_PWD=pass  mysql -h 127.0.0.1 -P 3307 -uadmin user -e "select * from user"
 
-
-```bash
-MYSQL_PWD=pass  mysql -h 127.0.0.1 -P 3307 -uadmin user 
+# MySQL proxy test
+MYSQL_PWD=PwTest01 mysql -h 127.0.0.1 -P 3307 -uroot@127.0.0.1 mysql
 ```
 
-
-# Usage
-
-Check and change the password information of the administrative user of mysql8-audit-proxy
-```sql
-mysql> select * from user;
-+---------+----------+
-| User    | Password |
-+---------+----------+
-| admin   | pass     |
-+---------+----------+
-1 rows in set (0.00 sec)
-
-mysql> update user set Password='passxxx' where User='admin';
-```
-
-## Register the target mysql server and user/password. 
-For the server name and user/password information of the proxy destination mysql server, connect to mysql8-audit-proxy as an admin user and insert it into the user table.
-
-```sql
-insert user(User,Password) values('<username>@<hostname[:port]>', '<password>');
-insert user(User,Password) values('<username>@<Regular expression>', '<password>');
-```
-### example
-```sql
-mysql> insert user(User,Password) values('user1@10.2.1.1','passxxxxx');
-mysql> insert user(User,Password) values('root@.*','Password00000');
-```
-
-## Connect to mysql via mysql8-audit-proxy
-
-```bash
-MYSQL_PWD=<password> mysql -h 127.0.0.1 -P 3307 -u<username>@<hostname[:port]> <dbname>
-# example
-MYSQL_PWD=passxxxxx> mysql -h 127.0.0.1 -P 3307 -uuser1@10.2.1.1 dbname
-
-```
-
+We're excited to see your contributions!
