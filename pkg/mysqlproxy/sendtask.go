@@ -88,7 +88,7 @@ func (st *SendTask) newSendPacket() *sendpacket.SendPacket {
 func (st *SendTask) readFullMysqlPacket(ctx context.Context, buf []byte) (int, error) {
 	size := 0
 	for {
-		if err := st.Reader.SetReadDeadline(time.Now().Add(st.Config.BufferFlushTime)); err != nil {
+		if err := st.Reader.SetReadDeadline(time.Now().Add(st.Config.ConTimeout)); err != nil {
 			return 0, err
 		}
 		nn, err := st.Reader.Read(buf)
