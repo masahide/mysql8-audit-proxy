@@ -7,9 +7,9 @@ import (
 	"net"
 	"sync"
 
+	"github.com/go-mysql-org/go-mysql/client"
 	"github.com/go-mysql-org/go-mysql/mysql"
-	"github.com/masahide/go-mysql/client"
-	"github.com/masahide/go-mysql/server"
+	"github.com/go-mysql-org/go-mysql/server"
 	"github.com/masahide/mysql8-audit-proxy/pkg/timeoutnet"
 )
 

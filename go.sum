@@ -76,6 +76,8 @@ github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-mysql-org/go-mysql v1.7.0 h1:qE5FTRb3ZeTQmlk3pjE+/m2ravGxxRDrVDTyDe9tvqI=
 github.com/go-mysql-org/go-mysql v1.7.0/go.mod h1:9cRWLtuXNKhamUPMkrDVzBhaomGvqLRLtBiyjvjc4pk=
+github.com/go-mysql-org/go-mysql v1.7.1-0.20230618111021-58e3165f38bf h1:+mJO4qVV7F07OD3+pcO5WxR+o0KiP0DcIuALwYUAbPE=
+github.com/go-mysql-org/go-mysql v1.7.1-0.20230618111021-58e3165f38bf/go.mod h1:E5KnbIqG4DFYMpPnc/zE1g9xLBa8376PdP/mNdmUOo0=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/go-sql-driver/mysql v1.6.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=

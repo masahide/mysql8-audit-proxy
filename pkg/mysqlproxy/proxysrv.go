@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/go-mysql-org/go-mysql/mysql"
+	"github.com/go-mysql-org/go-mysql/server"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/masahide/go-mysql/server"
 	"github.com/masahide/mysql8-audit-proxy/pkg/generatepem"
 	"github.com/masahide/mysql8-audit-proxy/pkg/serverconfig"
 )
