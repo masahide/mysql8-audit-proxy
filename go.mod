@@ -4,10 +4,9 @@ go 1.20
 
 require (
 	github.com/dzeromsk/debpack v0.0.0-20190912160929-4b3d7b5dd69b
-	github.com/go-mysql-org/go-mysql v1.7.0
+	github.com/go-mysql-org/go-mysql v1.7.1-0.20230618111021-58e3165f38bf
 	github.com/google/rpmpack v0.0.0-20221120200012-98b63d62fd77
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/masahide/go-mysql v0.0.0-20230617133912-5398a9168b1c
 	github.com/mus-format/mus-go v0.0.0-20230509112454-a98ee1309aef
 	github.com/pingcap/tidb/parser v0.0.0-20221126021158-6b02a5d8ba7d
 )
