@@ -13,7 +13,7 @@ We welcome contributions in all forms. Here's how to get started:
 5. Push your branch to your fork.
 6. Open a pull request in the main repository.
 
-Please adhere to our coding style guidelines. 
+Please follow format by go fmt.
 
 ## Reporting Issues
 If you find a bug or issue with mysql8-audit-proxy, please open an issue on the GitHub repository. Please include as much detail as possible, including steps to reproduce the issue, any error messages, and information about your operating system and version of MySQL.
