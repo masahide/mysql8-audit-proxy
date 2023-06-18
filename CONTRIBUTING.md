@@ -15,9 +15,6 @@ We welcome contributions in all forms. Here's how to get started:
 
 Please adhere to our coding style guidelines. 
 
-## Code of Conduct
-We expect all contributors to adhere to our Code of Conduct. Please see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for more information.
-
 ## Reporting Issues
 If you find a bug or issue with mysql8-audit-proxy, please open an issue on the GitHub repository. Please include as much detail as possible, including steps to reproduce the issue, any error messages, and information about your operating system and version of MySQL.
 
@@ -27,8 +24,6 @@ We're always open to new ideas! If you have a suggestion for a new feature, plea
 ## Getting Help
 If you need help with using mysql8-audit-proxy, please open an issue on the GitHub repository. We'll do our best to assist you!
 
-## Testing
-Here's how to run tests on mysql8-audit-proxy using a MySQL 8 Docker container.
 
 ### Start and Stop MySQL Daemon
 ```bash
