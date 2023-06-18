@@ -1,4 +1,9 @@
 # mysql8-audit-proxy
+
+![semver](https://img.shields.io/github/v/tag/masahide/mysql8-audit-proxy)
+![example workflow](https://github.com/masahide/mysql8-audit-proxy/actions/workflows/buildpkg.yml/badge.svg)
+![gomod version](https://img.shields.io/github/go-mod/go-version/masahide/mysql8-audit-proxy/main)
+
 `mysql8-audit-proxy` is a daemon that operates as a proxy between a MySQL version 8 server and a MySQL client. Its main function is to audit SQL operations coming from the client. It's licensed under the MIT License.
 
 # Overview
