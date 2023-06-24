@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
 )
 
 const (
@@ -20,6 +21,7 @@ type Manager struct {
 	configDir   string
 	filePath    string
 	serverIndex map[string]int
+	mu          sync.RWMutex
 }
 
 type Server struct {
@@ -60,6 +62,8 @@ func (m *Manager) PrintPathInfo() string {
 	return string(b)
 }
 func (m *Manager) makeIndex(c *Config) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.serverIndex = map[string]int{}
 	for i := range c.Servers {
 		m.serverIndex[c.Servers[i].User] = i
@@ -122,6 +126,8 @@ func (m *Manager) insert(p *ParsedQuery, conf *Config) (uint64, error) {
 	if err != nil {
 		return n, err
 	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	for _, server := range servers {
 		if _, ok := m.serverIndex[server.User]; ok {
 			return n, fmt.Errorf("allready exists proxyUser:%s", server.User)
@@ -159,6 +165,8 @@ func (m *Manager) update(p *ParsedQuery, conf *Config) (uint64, error) {
 	if len(rows) == 0 {
 		return n, errors.New("no update data")
 	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	for _, u := range rows {
 		i, ok := m.serverIndex[u.User]
 		if !ok {
