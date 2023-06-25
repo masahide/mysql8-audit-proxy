@@ -1,6 +1,10 @@
 package serverconfig
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,20 +34,27 @@ type Server struct {
 }
 
 var (
-	defaultConfig = Config{
-		Servers: []Server{
-			{User: "admin", Password: "pass"},
-		},
+	defaultConfig = func(key []byte) *Config {
+		return &Config{
+			Key: key,
+			Servers: []Server{
+				{User: "admin", Password: mustEncrypt(key, "pass")},
+			},
+		}
 	}
 )
 
 type Config struct {
 	Servers []Server
+	Key     []byte
 }
 
 func NewConfig() *Config {
-	c := defaultConfig
-	return &c
+	key, err := generateKey()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return defaultConfig(key)
 }
 
 func NewManager(dir string) *Manager {
@@ -61,39 +72,38 @@ func (m *Manager) PrintPathInfo() string {
 	}
 	return string(b)
 }
-func (m *Manager) makeIndex(c *Config) {
+func (m *Manager) makeIndex(conf *Config) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.serverIndex = map[string]int{}
-	for i := range c.Servers {
-		m.serverIndex[c.Servers[i].User] = i
+	for i := range conf.Servers {
+		m.serverIndex[conf.Servers[i].User] = i
 	}
 }
 
 func (m *Manager) GetConfig() *Config {
-	c := NewConfig()
-	m.makeIndex(c)
+	conf := NewConfig()
+	b, _ := json.MarshalIndent(conf, "", "  ")
+	log.Printf(string(b))
+	m.makeIndex(conf)
 	f, err := os.Open(m.filePath)
 	if err != nil {
-		return c
+		return conf
 	}
 	defer f.Close()
-	if err := json.NewDecoder(f).Decode(c); err != nil {
+	if err := json.NewDecoder(f).Decode(conf); err != nil {
 		log.Printf("error decoding json: %v file:%s. using default empty config", err, f.Name())
 	}
-	m.makeIndex(c)
-	//log.Printf("loaded config: %# v", c)
-	return c
-}
-
-/*
-func (m *Manager) GetServer(proxyUser string, s []Server) *Server {
-	if i, ok := m.serverIndex[proxyUser]; ok {
-		return &s[i]
+	if conf.Key == nil || len(conf.Key) == 0 {
+		conf.Key, err = generateKey()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
-	return nil
+	m.makeIndex(conf)
+	//log.Printf("loaded config: %# v", conf)
+	return conf
 }
-*/
 
 func (m *Manager) PutConfig(conf *Config) error {
 	if err := os.MkdirAll(filepath.Join(m.configDir, appConfigDir), 0755); err != nil {
@@ -131,6 +141,10 @@ func (m *Manager) insert(p *ParsedQuery, conf *Config) (uint64, error) {
 	for _, server := range servers {
 		if _, ok := m.serverIndex[server.User]; ok {
 			return n, fmt.Errorf("allready exists proxyUser:%s", server.User)
+		}
+		server.Password, err = encrypt(conf.Key, server.Password)
+		if err != nil {
+			return n, err
 		}
 		conf.Servers = append(conf.Servers, server)
 		m.serverIndex[server.User] = len(conf.Servers) - 1
@@ -172,9 +186,15 @@ func (m *Manager) update(p *ParsedQuery, conf *Config) (uint64, error) {
 		if !ok {
 			return n, fmt.Errorf("proxyUser:%s not found", u.User)
 		}
-		if conf.Servers[i], err = updateColumns(p, u); err != nil {
+		s, err := updateColumns(p, u)
+		if err != nil {
 			return n, err
 		}
+		s.Password, err = encrypt(conf.Key, s.Password)
+		if err != nil {
+			return n, err
+		}
+		conf.Servers[i] = s
 		n++
 	}
 
@@ -220,7 +240,7 @@ func (m *Manager) delete(p *ParsedQuery, conf *Config) (uint64, error) {
 type serverInfo struct {
 	Addr     string
 	User     string
-	Password string
+	Password []byte
 }
 
 const defaultMySQLPort = "3306"
@@ -259,9 +279,8 @@ func getServerInfo(input string) (serverInfo, error) {
 }
 */
 
-func (m *Manager) getServer(username string) *Server {
-	c := m.GetConfig()
-	for _, s := range c.Servers {
+func (m *Manager) getServer(conf *Config, username string) *Server {
+	for _, s := range conf.Servers {
 		re, err := regexp.Compile(`^` + s.User + `$`)
 		if err != nil {
 			if s.User == username {
@@ -285,9 +304,70 @@ func (m *Manager) getServer(username string) *Server {
 }
 
 func (m *Manager) GetPassword(username string) (string, error) {
-	s := m.getServer(username)
+	conf := m.GetConfig()
+	s := m.getServer(conf, username)
 	if s == nil {
 		return "", errors.New("not found")
 	}
-	return s.Password, nil
+	p, err := decrypt(conf.Key, s.Password)
+	if err != nil {
+		return "", err
+	}
+	return string(p), nil
+}
+
+func generateKey() ([]byte, error) {
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	if err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
+func encrypt(key []byte, data string) (string, error) {
+	blockCipher, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(blockCipher)
+	if err != nil {
+		return "", err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err = rand.Read(nonce); err != nil {
+		return "", err
+	}
+	ciphertext := gcm.Seal(nonce, nonce, []byte(data), nil)
+	s := base64.RawStdEncoding.EncodeToString(ciphertext)
+	return s, nil
+}
+
+func mustEncrypt(key []byte, data string) string {
+	crypt, err := encrypt(key, data)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return crypt
+}
+
+func decrypt(key []byte, data string) (string, error) {
+	blockCipher, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(blockCipher)
+	if err != nil {
+		return "", err
+	}
+	b, err := base64.RawStdEncoding.DecodeString(data)
+	if err != nil {
+		return "", err
+	}
+	nonce, ciphertext := b[:gcm.NonceSize()], b[gcm.NonceSize():]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return "", err
+	}
+	return string(plaintext), nil
 }
