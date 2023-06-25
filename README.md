@@ -34,7 +34,7 @@ To use mysql8-audit-proxy, you need to register the proxy connection information
 
 - Start mysql8-audit-proxy
 - Connect to mysql8-audit-proxy with the mysql command (using the admin user)
-- Change the initial password of the admin user to any password
+- Change the initial password(`pass`) of the admin user to any password
 - Insert connection information into the user table
 
 ### Structure and Rules of the User Table
