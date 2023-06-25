@@ -58,7 +58,7 @@ mysql> select * from user;
 +---------+----------+
 | User    | Password |
 +---------+----------+
-| admin   | pass     |
+| admin   | qUQ7xAp9Dc3cRqMNBzCFiwd+uspTVMSdRXeRdo+4BLw     |
 +---------+----------+
 1 rows in set (0.00 sec)
 
