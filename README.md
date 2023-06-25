@@ -55,11 +55,11 @@ Here's an example setup:
 # Connect to mysql8-audit-proxy with the mysql command
 MYSQL_PWD=pass  mysql -h 127.0.0.1 -P 3307 -uadmin user 
 mysql> select * from user;
-+---------+----------+
-| User    | Password |
-+---------+----------+
-| admin   | qUQ7xAp9Dc3cRqMNBzCFiwd+uspTVMSdRXeRdo+4BLw     |
-+---------+----------+
++-------+---------------------------------------------+
+| User  | Password                                    |
++-------+---------------------------------------------+
+| admin | y3aH0EuJdX2+R+0G5Wnmv4XBNBqQu8digBo1GypaA/Y |
++-------+---------------------------------------------+
 1 rows in set (0.00 sec)
 
 # Change the admin password
