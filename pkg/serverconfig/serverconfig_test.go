@@ -2,6 +2,7 @@ package serverconfig
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"testing"
 
@@ -9,12 +10,21 @@ import (
 	"github.com/pingcap/tidb/parser/opcode"
 )
 
+func mustGenerateKey() []byte {
+	b, err := generateKey()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return b
+}
+
 func TestManager(t *testing.T) {
 	dir, err := os.MkdirTemp("", "mysqlaudit-proxy")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(dir)
+	key := mustGenerateKey()
 	testCases := []struct {
 		name     string
 		dir      string
@@ -27,17 +37,19 @@ func TestManager(t *testing.T) {
 			name: "default config",
 			dir:  dir,
 			config: Config{
+				Key: key,
 				Servers: []Server{
-					{User: "admin", Password: "pass"},
-					{User: "user1@localhost", Password: "123"},
+					{User: "admin", Password: mustEncrypt(key, "pass")},
+					{User: "user1@localhost", Password: mustEncrypt(key, "123")},
 				},
 			},
 			user: "admin",
 			pass: "pass",
 			expected: &Config{
+				Key: key,
 				Servers: []Server{
-					{User: "admin", Password: "pass"},
-					{User: "user1@localhost", Password: "123"},
+					{User: "admin", Password: mustEncrypt(key, "pass")},
+					{User: "user1@localhost", Password: mustEncrypt(key, "123")},
 				},
 			},
 		},
@@ -45,17 +57,19 @@ func TestManager(t *testing.T) {
 			name: "custom config",
 			dir:  dir,
 			config: Config{
+				Key: key,
 				Servers: []Server{
-					{User: "custom", Password: "pass1"},
-					{User: "custom2", Password: "pass2"},
+					{User: "custom", Password: mustEncrypt(key, "pass1")},
+					{User: "custom2", Password: mustEncrypt(key, "pass2")},
 				},
 			},
 			user: "custom2",
 			pass: "pass2",
 			expected: &Config{
+				Key: key,
 				Servers: []Server{
-					{User: "custom", Password: "pass1"},
-					{User: "custom2", Password: "pass2"},
+					{User: "custom", Password: mustEncrypt(key, "pass1")},
+					{User: "custom2", Password: mustEncrypt(key, "pass2")},
 				},
 			},
 		},
@@ -76,7 +90,7 @@ func TestManager(t *testing.T) {
 			t.Run("GetConfig", func(t *testing.T) {
 				// Test GetConfig
 				got := m.GetConfig()
-				if diff := cmp.Diff(got, tc.expected); diff != "" {
+				if diff := cmp.Diff(rmPwFromConfig(got), rmPwFromConfig(tc.expected)); diff != "" {
 					t.Errorf("mismatch (-got +expected):\n%s", diff)
 				}
 			})
@@ -99,7 +113,8 @@ func TestManager(t *testing.T) {
 			t.Run("GetConfigAfterDelete", func(t *testing.T) {
 				// Test GetConfig after deleteConfig
 				got := m.GetConfig()
-				if diff := cmp.Diff(*got, defaultConfig); diff != "" {
+				dc := defaultConfig
+				if diff := cmp.Diff(rmPwFromConfig(got), rmPwFromConfig(dc(key))); diff != "" {
 					t.Errorf("GetConfig after deleteConfig mismatch (-got +defaultConfig):\n%s", diff)
 				}
 			})
@@ -109,6 +124,7 @@ func TestManager(t *testing.T) {
 }
 
 func TestManager_Insert(t *testing.T) {
+	key := mustGenerateKey()
 	testCases := []struct {
 		name            string
 		parsedQuery     ParsedQuery
@@ -126,16 +142,17 @@ func TestManager_Insert(t *testing.T) {
 				},
 			},
 			initialConfig: &Config{
+				Key: key,
 				Servers: []Server{
-					{User: "admin", Password: "pass"},
-					{User: "user1@localhost", Password: "123"},
+					{User: "admin", Password: mustEncrypt(key, "pass")},
+					{User: "user1@localhost", Password: mustEncrypt(key, "123")},
 				},
 			},
 			expectedErr: nil,
 			expectedServers: []Server{
-				{User: "admin", Password: "pass"},
-				{User: "user1@localhost", Password: "123"},
-				{User: "user2", Password: "password2"},
+				{User: "admin", Password: mustEncrypt(key, "pass")},
+				{User: "user1@localhost", Password: mustEncrypt(key, "123")},
+				{User: "user2", Password: mustEncrypt(key, "password2")},
 			},
 			expectN: 1,
 		},
@@ -148,9 +165,10 @@ func TestManager_Insert(t *testing.T) {
 				},
 			},
 			initialConfig: &Config{
+				Key: key,
 				Servers: []Server{
-					{User: "admin", Password: "pass"},
-					{User: "user1@localhost", Password: "123"},
+					{User: "admin", Password: mustEncrypt(key, "pass")},
+					{User: "user1@localhost", Password: mustEncrypt(key, "123")},
 				},
 			},
 			expectedErr: fmt.Errorf("allready exists proxyUser:admin"),
@@ -164,16 +182,17 @@ func TestManager_Insert(t *testing.T) {
 				},
 			},
 			initialConfig: &Config{
+				Key: key,
 				Servers: []Server{
-					{User: "admin", Password: "pass"},
-					{User: "user1@localhost", Password: "123"},
+					{User: "admin", Password: mustEncrypt(key, "pass")},
+					{User: "user1@localhost", Password: mustEncrypt(key, "123")},
 				},
 			},
 			expectedErr: nil,
 			expectedServers: []Server{
-				{User: "admin", Password: "pass"},
-				{User: "user1@localhost", Password: "123"},
-				{User: "user3", Password: "password3"},
+				{User: "admin", Password: mustEncrypt(key, "pass")},
+				{User: "user1@localhost", Password: mustEncrypt(key, "123")},
+				{User: "user3", Password: mustEncrypt(key, "password3")},
 			},
 			expectN: 1,
 		},
@@ -196,7 +215,7 @@ func TestManager_Insert(t *testing.T) {
 			} else if tc.expectedErr != nil {
 				t.Errorf("expected error: %v, but got nil", tc.expectedErr)
 			} else {
-				if diff := cmp.Diff(tc.initialConfig.Servers, tc.expectedServers); diff != "" {
+				if diff := cmp.Diff(rmPw(tc.initialConfig.Servers), rmPw(tc.expectedServers)); diff != "" {
 					t.Errorf("mismatch (-got +expected):\n%s", diff)
 				}
 			}
@@ -208,6 +227,7 @@ func TestManager_Insert(t *testing.T) {
 }
 
 func TestManager_Update(t *testing.T) {
+	key := mustGenerateKey()
 	testCases := []struct {
 		name          string
 		parsedQuery   ParsedQuery
@@ -227,9 +247,10 @@ func TestManager_Update(t *testing.T) {
 				},
 			},
 			initialConfig: &Config{
+				Key: key,
 				Servers: []Server{
-					{User: "admin", Password: "pass"},
-					{User: "user1@localhost", Password: "123"},
+					{User: "admin", Password: mustEncrypt(key, "pass")},
+					{User: "user1@localhost", Password: mustEncrypt(key, "123")},
 				},
 			},
 			expectedErr: nil,
@@ -247,9 +268,10 @@ func TestManager_Update(t *testing.T) {
 				},
 			},
 			initialConfig: &Config{
+				Key: key,
 				Servers: []Server{
-					{User: "admin", Password: "pass"},
-					{User: "user1@localhost", Password: "123"},
+					{User: "admin", Password: mustEncrypt(key, "pass")},
+					{User: "user1@localhost", Password: mustEncrypt(key, "123")},
 				},
 			},
 			expectedErr: fmt.Errorf("no update data"),
@@ -267,9 +289,10 @@ func TestManager_Update(t *testing.T) {
 				},
 			},
 			initialConfig: &Config{
+				Key: key,
 				Servers: []Server{
-					{User: "admin", Password: "pass"},
-					{User: "user1@localhost", Password: "123"},
+					{User: "admin", Password: mustEncrypt(key, "pass")},
+					{User: "user1@localhost", Password: mustEncrypt(key, "123")},
 				},
 			},
 			expectedErr: fmt.Errorf("where only supports equal operation"),
@@ -301,6 +324,7 @@ func TestManager_Update(t *testing.T) {
 }
 
 func TestManager_Delete(t *testing.T) {
+	key := mustGenerateKey()
 	testCases := []struct {
 		name            string
 		parsedQuery     ParsedQuery
@@ -321,9 +345,10 @@ func TestManager_Delete(t *testing.T) {
 				},
 			},
 			initialConfig: &Config{
+				Key: key,
 				Servers: []Server{
-					{User: "admin", Password: "pass"},
-					{User: "user1@localhost", Password: "123"},
+					{User: "admin", Password: mustEncrypt(key, "pass")},
+					{User: "user1@localhost", Password: mustEncrypt(key, "123")},
 				},
 			},
 			expectedServers: []Server{
@@ -344,9 +369,10 @@ func TestManager_Delete(t *testing.T) {
 				},
 			},
 			initialConfig: &Config{
+				Key: key,
 				Servers: []Server{
-					{User: "admin", Password: "pass"},
-					{User: "user1@localhost", Password: "123"},
+					{User: "admin", Password: mustEncrypt(key, "pass")},
+					{User: "user1@localhost", Password: mustEncrypt(key, "123")},
 				},
 			},
 			expectedErr: fmt.Errorf("not found data"),
@@ -368,9 +394,10 @@ func TestManager_Delete(t *testing.T) {
 				},
 			},
 			initialConfig: &Config{
+				Key: key,
 				Servers: []Server{
-					{User: "admin", Password: "pass"},
-					{User: "user1@localhost", Password: "123"},
+					{User: "admin", Password: mustEncrypt(key, "pass")},
+					{User: "user1@localhost", Password: mustEncrypt(key, "123")},
 				},
 			},
 			expectedErr: fmt.Errorf("where only supports equal operation"),
@@ -396,11 +423,24 @@ func TestManager_Delete(t *testing.T) {
 				t.Errorf("expected error: %v, but got nil", tc.expectedErr)
 			} else if n != tc.expectN {
 				t.Errorf("n  mismatch: got %d, want %d", n, tc.expectN)
-			} else if diff := cmp.Diff(tc.initialConfig.Servers, tc.expectedServers); diff != "" {
+			} else if diff := cmp.Diff(rmPw(tc.initialConfig.Servers), rmPw(tc.expectedServers)); diff != "" {
 				t.Errorf("mismatch (-got +expected):\n%s", diff)
 			}
 		})
 	}
+}
+
+func rmPw(s []Server) []Server {
+	for i := range s {
+		s[i].Password = ""
+	}
+	return s
+}
+
+func rmPwFromConfig(c *Config) *Config {
+	c.Key = []byte{}
+	c.Servers = rmPw(c.Servers)
+	return c
 }
 
 /*
