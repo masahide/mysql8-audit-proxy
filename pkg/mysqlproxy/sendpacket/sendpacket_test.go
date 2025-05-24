@@ -3,6 +3,7 @@ package sendpacket
 import (
 	"bytes"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -105,4 +106,51 @@ func TestEncodeDecode(t *testing.T) {
 		})
 	})
 
+}
+
+func TestDecodePacketAliasing(t *testing.T) {
+	originalPacket := SendPacket{
+		Datetime:     1678886400,
+		ConnectionID: 12345,
+		User:         "test_user",
+		Db:           "test_db",
+		Addr:         "127.0.0.1:12345",
+		State:        "test_state",
+		Err:          "test_error_message",
+		Cmd:          "test_command",
+		Packets:      []byte{0x01, 0x02, 0x03, 0x04},
+	}
+
+	buf := &bytes.Buffer{}
+	if err := EncodePacket(buf, &originalPacket); err != nil {
+		t.Fatalf("EncodePacket failed: %v", err)
+	}
+
+	decoder := NewDecoder(buf)
+	var decodedPacket SendPacket
+	// Initialize Packets slice to a different capacity to check if DecodePacket reuses it or allocates a new one.
+	// This is a more robust check against aliasing if the underlying slice is merely resized.
+	decodedPacket.Packets = make([]byte, 0, len(originalPacket.Packets)+10)
+
+
+	if err := decoder.DecodePacket(&decodedPacket); err != nil {
+		t.Fatalf("DecodePacket failed: %v", err)
+	}
+
+	if !reflect.DeepEqual(originalPacket, decodedPacket) {
+		t.Errorf("Decoded packet does not match original packet.\nOriginal: %+v\nDecoded:  %+v", originalPacket, decodedPacket)
+	}
+
+	// Further check to ensure Packets field was copied, not aliased.
+	// Modify originalPacket.Packets and check if decodedPacket.Packets changes.
+	// This is a direct test for aliasing.
+	originalPacket.Packets[0] = 0xff
+	if reflect.DeepEqual(originalPacket, decodedPacket) {
+		t.Errorf("Decoded packet's Packets field is aliased to the original packet's Packets field.\nOriginal: %+v\nDecoded:  %+v", originalPacket, decodedPacket)
+	}
+	// Check that decodedPacket.Packets still holds the original data
+	expectedPackets := []byte{0x01, 0x02, 0x03, 0x04}
+	if !bytes.Equal(decodedPacket.Packets, expectedPackets) {
+		t.Errorf("decodedPacket.Packets was modified after originalPacket.Packets was modified. Expected: %v, Got: %v", expectedPackets, decodedPacket.Packets)
+	}
 }

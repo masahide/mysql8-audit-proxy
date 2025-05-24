@@ -76,6 +76,9 @@ func (st *SendTask) sendState(ctx context.Context, state string) error {
 
 func (st *SendTask) newSendPacket() *sendpacket.SendPacket {
 	sp := st.GetSendPacket()
+	sp.Packets = sp.Packets[:0]
+	sp.Err = ""
+	sp.Cmd = ""
 	sp.Datetime = time.Now().Unix()
 	sp.User = st.User
 	sp.Addr = st.Reader.RemoteAddr().String()

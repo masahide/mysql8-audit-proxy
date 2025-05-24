@@ -139,7 +139,7 @@ func (d *Decoder) DecodePacket(bbp *SendPacket) error {
 	if data, err = d.readBytes(d.r); err != nil {
 		return err
 	}
-	bbp.Packets = data
+	bbp.Packets = append([]byte(nil), data...)
 
 	return nil
 }
