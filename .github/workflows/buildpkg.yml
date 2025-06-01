@@ -83,7 +83,8 @@ jobs:
         with:
           name: bin-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
-            .bin/*
+            .bin/${{ env.APP_NAME }}
+            .bin/${{ env.APP2_NAME }}
 
   # build rpm, deb packages
   build-linux-packages:
