@@ -83,8 +83,8 @@ func (m *Manager) makeIndex(conf *Config) {
 
 func (m *Manager) GetConfig() *Config {
 	conf := NewConfig()
-	b, _ := json.MarshalIndent(conf, "", "  ")
-	log.Printf(string(b))
+	// b, _ := json.MarshalIndent(conf, "", "  ")
+	// log.Print(string(b))
 	m.makeIndex(conf)
 	f, err := os.Open(m.filePath)
 	if err != nil {

@@ -46,7 +46,7 @@ func (h *configHandler) deleteStmt(p *ParsedQuery) {
 	h.res = &mysql.Result{AffectedRows: n}
 }
 
-func (h *configHandler) handleQuery(query string, binary bool) (*mysql.Result, error) {
+func (h *configHandler) handleQuery(query string) (*mysql.Result, error) {
 	astNode, err := Parse(query)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (h *configHandler) handleQuery(query string, binary bool) (*mysql.Result, e
 }
 
 func (h *configHandler) HandleQuery(query string) (*mysql.Result, error) {
-	return h.handleQuery(query, false)
+	return h.handleQuery(query)
 }
 
 func (h *configHandler) HandleOtherCommand(cmd byte, data []byte) error {

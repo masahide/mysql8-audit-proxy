@@ -94,7 +94,7 @@ func (p *ProxySrv) sessionWorker(ctx context.Context, netConn net.Conn) {
 		mysql.AUTH_CACHING_SHA2_PASSWORD,
 		[]byte(p.serverPems.Public), p.tlsConf)
 	remoteProvider := NewConfigProvider(p.SvConfMng)
-	mysqlConn, err := server.NewCustomizedConn(netConn, svr, remoteProvider, chandler)
+	mysqlConn, err := svr.NewCustomizedConn(netConn, remoteProvider, chandler)
 	if err != nil {
 		log.Printf("Connection error: %v", err)
 		return
