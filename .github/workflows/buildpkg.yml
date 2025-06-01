@@ -79,7 +79,7 @@ jobs:
             -o .bin/${{ env.APP2_NAME }} \
             ${{ env.APP2_MAIN_GO }}
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: bin-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
@@ -127,7 +127,7 @@ jobs:
           BINPATH=".bin/${{ env.APP_NAME }}" \
           go run pack/debpack/main.go
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: linux-packages-${{ matrix.goarch }}
           path: |
