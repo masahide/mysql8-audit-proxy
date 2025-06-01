@@ -6,7 +6,6 @@ on:
     #  - 'v*.*.*'
 
 env:
-  GO_VERSION: '1.20'
   APP_NAME: 'mysql8-audit-proxy'
   APP2_NAME: 'mysql8-audit-log-decoder'
   MAIN_GO: '.'
@@ -16,9 +15,9 @@ env:
 jobs:
 
   info:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Get the info
         id: info
         run: |
@@ -39,19 +38,19 @@ jobs:
       hash: ${{ steps.info.outputs.hash }}
 
   go-test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: 'go.mod'
       - name: Test
         run: |
           go test -v ./...
 
   build-binary:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [info, go-test]
     strategy:
       matrix:
@@ -59,11 +58,11 @@ jobs:
         goarch: [amd64]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: 'go.mod'
 
       - name: Build
         run: |
@@ -80,27 +79,28 @@ jobs:
             -o .bin/${{ env.APP2_NAME }} \
             ${{ env.APP2_MAIN_GO }}
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: bin-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
-            .bin/*
+            .bin/${{ env.APP_NAME }}
+            .bin/${{ env.APP2_NAME }}
 
   # build rpm, deb packages
   build-linux-packages:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [info, build-binary]
     strategy:
       matrix:
         goarch: [amd64]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: 'go.mod'
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bin-linux-${{ matrix.goarch }}
           path: .bin
@@ -128,7 +128,7 @@ jobs:
           BINPATH=".bin/${{ env.APP_NAME }}" \
           go run pack/debpack/main.go
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: linux-packages-${{ matrix.goarch }}
           path: |
@@ -145,12 +145,12 @@ jobs:
       contents: write
       discussions: write
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [info, build-linux-packages]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Download All Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
       - name: Create assets
         run: |
           mkdir .dist
@@ -172,7 +172,7 @@ jobs:
           echo > release.md
 
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           prerelease: true
           body_path: release.md

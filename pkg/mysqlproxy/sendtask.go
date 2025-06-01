@@ -106,7 +106,7 @@ func (st *SendTask) readFullMysqlPacket(ctx context.Context, buf []byte) (int, e
 				return size, err
 			}
 			return size, io.ErrUnexpectedEOF
-		case err != nil:
+		default:
 			log.Printf("read err:%s", err)
 			return size, err
 		}
