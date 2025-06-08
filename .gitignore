@@ -21,3 +21,4 @@
 go.work
 cmd/ganeratepem/ganeratepem
 cmd/mysql8-audit-log-decoder/mysql8-audit-log-decoder
+*.log.gz
