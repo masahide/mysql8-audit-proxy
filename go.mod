@@ -1,6 +1,6 @@
 module github.com/masahide/mysql8-audit-proxy
 
-go 1.24.3
+go 1.26.1
 
 require (
 	github.com/dzeromsk/debpack v0.0.0-20190912160929-4b3d7b5dd69b
