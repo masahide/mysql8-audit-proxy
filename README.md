@@ -18,9 +18,10 @@ The tool can be configured using environment variables. Here are the default set
 - `PROXY_LISTEN_ADDR`: The address that the proxy listens on. Default is `":3307"`.
 - `PROXY_LISTEN_NET`: The network protocol used by the proxy. Default is `"tcp"`.
 - `CON_TIMEOUT`: The connection timeout. Default is `"300s"`.
-- `LOG_FILE_NAME`: The name format of the log file. Default is `"mysql-audit.%Y%m%d%H.log.gz"`.
+- `LOG_FILE_NAME`: The name format of the log file. Default is `"mysql8-audit.%Y%m%d%H.log.gz"`.
 - `ROTATE_TIME`: The time interval at which log files are rotated. Default is `"1h"`.
 - `ADMIN_USER`: The admin user. Default is `"admin"`.
+- `PROXY_CONFIG_DIR`: Base directory where the internal config file is stored. Default is the OS user config directory (for example `~/.config` on Linux), and the actual file path becomes `<PROXY_CONFIG_DIR>/mysql8-audit-proxy/config.json`.
 - `DEBUG`: Enable or disable debug mode. Default is `false`.
 
 
