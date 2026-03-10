@@ -33,15 +33,15 @@ func main() {
 	}
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	confDir, err := os.UserConfigDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-	svConfMng := serverconfig.NewManager(confDir)
 	proxyConf := &mysqlproxy.ProxyCfg{}
 	if err := envconfig.Process("", proxyConf); err != nil {
 		log.Fatal(err)
 	}
+	confDir, err := resolveConfigDir(proxyConf.ConfigDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	svConfMng := serverconfig.NewManager(confDir)
 	if proxyConf.Debug {
 		log.Printf("serverConfig %s", svConfMng.PrintPathInfo())
 		log.Printf("proxyConfig:\n%s\n", dumpJSON(proxyConf))
@@ -82,6 +82,13 @@ func main() {
 		wg.Done()
 	}()
 	wg.Wait()
+}
+
+func resolveConfigDir(override string) (string, error) {
+	if override != "" {
+		return override, nil
+	}
+	return os.UserConfigDir()
 }
 
 func dumpJSON(v any) string {

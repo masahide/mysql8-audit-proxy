@@ -24,7 +24,7 @@ func checkFormat(r io.Reader) (string, error) {
 	return string(b), nil
 }
 
-// /path/to/mysql-audit.%Y%m%d%H.log
+// /path/to/mysql8-audit.%Y%m%d%H.log
 func time2Path(p string, t time.Time) string {
 	p = strings.Replace(p, "%Y", fmt.Sprintf("%04d", t.Year()), -1)
 	p = strings.Replace(p, "%y", fmt.Sprintf("%02d", t.Year()%100), -1)

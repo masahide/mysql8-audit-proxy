@@ -38,7 +38,7 @@ func (p *ProxySrv) Start(ctx context.Context) error {
 // ProxySrv methods
 // createListener creates a listening socket
 func (p *ProxySrv) createListener() error {
-	listener, err := net.Listen(p.Config.ProxyListentNet, p.Config.ProxyListenAddr)
+	listener, err := net.Listen(p.Config.ProxyListenNet, p.Config.ProxyListenAddr)
 	if err != nil {
 		return fmt.Errorf("failed to create listening socket: %v", err)
 	}
